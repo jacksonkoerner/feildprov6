@@ -64,6 +64,60 @@
         .drag-over {
             border-top: 2px solid #16a34a;
         }
+        /* Import Section Styles */
+        .import-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 2px dashed #cbd5e1;
+        }
+        .drop-zone {
+            border: 2px dashed #94a3b8;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: white;
+        }
+        .drop-zone.drag-active {
+            border-color: #ea580c;
+            background-color: #fff7ed;
+            transform: scale(1.01);
+        }
+        .drop-zone:hover {
+            border-color: #64748b;
+        }
+        .file-item {
+            animation: slideIn 0.2s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .missing-field {
+            border-color: #dc2626 !important;
+            background-color: #fef2f2 !important;
+        }
+        .missing-indicator {
+            color: #dc2626;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .extraction-success-banner {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border-left: 4px solid #16a34a;
+        }
+        .extraction-error-banner {
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+            border-left: 4px solid #dc2626;
+        }
+        .extraction-notes {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+        }
+        .spin-animation {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
@@ -114,6 +168,80 @@
                     <i class="fas fa-check-circle"></i>
                     <span class="text-sm font-bold uppercase">Active Project</span>
                 </div>
+
+                <!-- Import from Existing Report Section -->
+                <section class="import-section p-4 rounded-lg">
+                    <div class="mb-4">
+                        <h2 class="text-sm font-bold text-dot-navy uppercase tracking-wider flex items-center gap-2 mb-2">
+                            <i class="fas fa-file-import text-dot-orange"></i>
+                            Import from Existing Report
+                        </h2>
+                        <p class="text-xs text-slate-600">Upload one or more RPR Daily Reports to automatically extract project details, contractors, and equipment.</p>
+                    </div>
+
+                    <!-- Success/Error Banners -->
+                    <div id="extractionSuccessBanner" class="hidden extraction-success-banner p-3 mb-4 rounded">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-check-circle text-safety-green mt-0.5"></i>
+                            <div>
+                                <p class="text-sm font-bold text-green-800">Project data extracted!</p>
+                                <p class="text-xs text-green-700">Please review and make any corrections before saving.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="extractionErrorBanner" class="hidden extraction-error-banner p-3 mb-4 rounded">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-exclamation-circle text-red-600 mt-0.5"></i>
+                            <div>
+                                <p class="text-sm font-bold text-red-800">Extraction failed</p>
+                                <p id="extractionErrorMessage" class="text-xs text-red-700"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Drop Zone -->
+                    <div id="dropZone" class="drop-zone p-6 text-center cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" class="hidden" accept=".pdf,.docx" multiple onchange="handleFileSelect(event)">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-slate-400 mb-3"></i>
+                        <p class="text-sm font-medium text-slate-600 mb-1">Drag and drop files here</p>
+                        <p class="text-xs text-slate-500 mb-3">or</p>
+                        <button type="button" onclick="event.stopPropagation(); document.getElementById('fileInput').click();" class="px-4 py-2 bg-dot-blue hover:bg-blue-800 text-white text-sm font-bold uppercase transition-colors">
+                            <i class="fas fa-folder-open mr-2"></i>Browse Files
+                        </button>
+                        <p class="text-xs text-slate-400 mt-3">Accepts PDF and DOCX files</p>
+                    </div>
+
+                    <!-- Selected Files List -->
+                    <div id="selectedFilesList" class="hidden mt-4">
+                        <p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Selected Files:</p>
+                        <div id="filesContainer" class="space-y-2">
+                            <!-- Files will be rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Extract Button -->
+                    <button id="extractBtn" onclick="extractProjectData()" class="hidden w-full mt-4 p-3 bg-dot-orange hover:bg-orange-700 text-white font-bold uppercase transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i id="extractBtnIcon" class="fas fa-magic"></i>
+                        <span id="extractBtnText">Extract Project Data</span>
+                    </button>
+
+                    <!-- Extraction Notes (collapsible) -->
+                    <div id="extractionNotesSection" class="hidden mt-4">
+                        <button onclick="toggleExtractionNotes()" class="w-full text-left extraction-notes p-3 rounded flex items-center justify-between">
+                            <span class="text-xs font-bold text-yellow-800 uppercase tracking-wider">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Extraction Notes
+                            </span>
+                            <i id="notesToggleIcon" class="fas fa-chevron-down text-yellow-700 text-xs transition-transform"></i>
+                        </button>
+                        <div id="extractionNotesContent" class="hidden bg-yellow-50 p-3 border border-t-0 border-yellow-200 rounded-b text-xs text-yellow-800">
+                            <ul id="extractionNotesList" class="space-y-1 list-disc list-inside">
+                                <!-- Notes will be rendered here -->
+                            </ul>
+                        </div>
+                    </div>
+                </section>
 
                 <!-- Project Details -->
                 <section class="bg-white border-2 border-slate-200">
@@ -363,15 +491,15 @@
         // ============ CONSTANTS ============
         const PROJECTS_KEY = 'fvp_projects';
         const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+        const EXTRACT_WEBHOOK_URL = 'https://advidere.app.n8n.cloud/webhook/fieldvoice-project-extractor';
 
         // ============ STATE ============
         let currentProject = null;
         let deleteCallback = null;
+        let selectedFiles = [];
 
         // ============ INITIALIZATION ============
-        document.addEventListener('DOMContentLoaded', () => {
-            renderSavedProjects();
-        });
+        // Note: Initialization moved to end of script with setupDropZone()
 
         // ============ PROJECT MANAGEMENT ============
         function getProjects() {
@@ -1017,6 +1145,369 @@
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
         }
+
+        // ============ FILE IMPORT FUNCTIONS ============
+        function setupDropZone() {
+            const dropZone = document.getElementById('dropZone');
+            if (!dropZone) return;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-active'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-active'), false);
+            });
+
+            dropZone.addEventListener('drop', handleDrop, false);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            const validExtensions = ['.pdf', '.docx'];
+            const newFiles = Array.from(files).filter(file => {
+                const ext = '.' + file.name.split('.').pop().toLowerCase();
+                if (!validExtensions.includes(ext)) {
+                    showToast(`Invalid file type: ${file.name}. Only PDF and DOCX allowed.`, 'error');
+                    return false;
+                }
+                // Check for duplicates
+                if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                    showToast(`File already added: ${file.name}`, 'warning');
+                    return false;
+                }
+                return true;
+            });
+
+            selectedFiles = [...selectedFiles, ...newFiles];
+            renderFileList();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (ext === 'pdf') {
+                return '<i class="fas fa-file-pdf text-red-500"></i>';
+            } else if (ext === 'docx' || ext === 'doc') {
+                return '<i class="fas fa-file-word text-blue-500"></i>';
+            }
+            return '<i class="fas fa-file text-slate-400"></i>';
+        }
+
+        function renderFileList() {
+            const listContainer = document.getElementById('selectedFilesList');
+            const filesContainer = document.getElementById('filesContainer');
+            const extractBtn = document.getElementById('extractBtn');
+
+            if (selectedFiles.length === 0) {
+                listContainer.classList.add('hidden');
+                extractBtn.classList.add('hidden');
+                return;
+            }
+
+            listContainer.classList.remove('hidden');
+            extractBtn.classList.remove('hidden');
+
+            filesContainer.innerHTML = selectedFiles.map((file, index) => `
+                <div class="file-item flex items-center gap-3 bg-white p-3 rounded border border-slate-200">
+                    <span class="text-lg">${getFileIcon(file.name)}</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-slate-800 truncate">${escapeHtml(file.name)}</p>
+                        <p class="text-xs text-slate-500">${formatFileSize(file.size)}</p>
+                    </div>
+                    <button onclick="removeFile(${index})" class="w-8 h-8 text-red-500 hover:bg-red-50 flex items-center justify-center rounded transition-colors" title="Remove file">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        function clearSelectedFiles() {
+            selectedFiles = [];
+            document.getElementById('fileInput').value = '';
+            renderFileList();
+        }
+
+        // ============ EXTRACTION FUNCTIONS ============
+        async function extractProjectData() {
+            if (selectedFiles.length === 0) {
+                showToast('Please select at least one file', 'error');
+                return;
+            }
+
+            // Hide any previous banners
+            hideExtractionBanners();
+
+            // Show loading state
+            setExtractButtonLoading(true);
+
+            try {
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('documents', file);
+                });
+
+                const response = await fetch(EXTRACT_WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    // Populate form with extracted data
+                    populateFormWithExtractedData(result.data);
+
+                    // Show success banner
+                    document.getElementById('extractionSuccessBanner').classList.remove('hidden');
+
+                    // Show extraction notes if any
+                    if (result.extractionNotes && result.extractionNotes.length > 0) {
+                        showExtractionNotes(result.extractionNotes);
+                    }
+
+                    // Clear selected files
+                    clearSelectedFiles();
+
+                    // Scroll to top of form
+                    document.getElementById('projectFormContainer').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    // Show error banner
+                    const errorMsg = result.error || 'Failed to extract project data. Please try again.';
+                    document.getElementById('extractionErrorMessage').textContent = errorMsg;
+                    document.getElementById('extractionErrorBanner').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Extraction error:', error);
+                document.getElementById('extractionErrorMessage').textContent = 'Network error. Please check your connection and try again.';
+                document.getElementById('extractionErrorBanner').classList.remove('hidden');
+            } finally {
+                setExtractButtonLoading(false);
+            }
+        }
+
+        function setExtractButtonLoading(isLoading) {
+            const btn = document.getElementById('extractBtn');
+            const icon = document.getElementById('extractBtnIcon');
+            const text = document.getElementById('extractBtnText');
+
+            if (isLoading) {
+                btn.disabled = true;
+                icon.className = 'fas fa-spinner spin-animation';
+                text.textContent = 'Extracting...';
+            } else {
+                btn.disabled = false;
+                icon.className = 'fas fa-magic';
+                text.textContent = 'Extract Project Data';
+            }
+        }
+
+        function hideExtractionBanners() {
+            document.getElementById('extractionSuccessBanner').classList.add('hidden');
+            document.getElementById('extractionErrorBanner').classList.add('hidden');
+        }
+
+        function showExtractionNotes(notes) {
+            const section = document.getElementById('extractionNotesSection');
+            const list = document.getElementById('extractionNotesList');
+
+            list.innerHTML = notes.map(note => `<li>${escapeHtml(note)}</li>`).join('');
+            section.classList.remove('hidden');
+        }
+
+        function toggleExtractionNotes() {
+            const content = document.getElementById('extractionNotesContent');
+            const icon = document.getElementById('notesToggleIcon');
+
+            content.classList.toggle('hidden');
+            icon.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+
+        // ============ FORM POPULATION FROM EXTRACTED DATA ============
+        function populateFormWithExtractedData(data) {
+            if (!currentProject) return;
+
+            // Define field mappings: formFieldId -> dataFieldPath
+            const fieldMappings = {
+                'projectName': 'projectName',
+                'noabProjectNo': 'noabProjectNo',
+                'cnoSolicitationNo': 'cnoSolicitationNo',
+                'location': 'location',
+                'engineer': 'engineer',
+                'primeContractor': 'primeContractor',
+                'noticeToProceed': 'noticeToProceed',
+                'contractDuration': 'contractDuration',
+                'expectedCompletion': 'expectedCompletion',
+                'defaultStartTime': 'defaultStartTime',
+                'defaultEndTime': 'defaultEndTime',
+                'weatherDays': 'weatherDays'
+            };
+
+            // Track missing fields
+            const missingFields = [];
+
+            // Populate each field
+            Object.entries(fieldMappings).forEach(([fieldId, dataKey]) => {
+                const input = document.getElementById(fieldId);
+                if (!input) return;
+
+                const value = data[dataKey];
+
+                // Clear any previous missing field indicators
+                clearMissingFieldIndicator(input);
+
+                if (value === null || value === undefined || value === '') {
+                    // Mark as missing
+                    markFieldAsMissing(input);
+                    missingFields.push(fieldId);
+                    input.value = '';
+                } else {
+                    input.value = value;
+                    // Update currentProject
+                    currentProject[dataKey] = value;
+                }
+            });
+
+            // Process contractors
+            if (data.contractors && Array.isArray(data.contractors)) {
+                const contractorIdMap = {}; // Map original names to new IDs
+                currentProject.contractors = data.contractors.map(contractor => {
+                    const id = generateId('contractor');
+                    contractorIdMap[contractor.name] = id;
+                    return {
+                        id: id,
+                        name: contractor.name || '',
+                        abbreviation: contractor.abbreviation || generateAbbreviation(contractor.name),
+                        type: contractor.type || 'subcontractor',
+                        trades: contractor.trades || ''
+                    };
+                });
+
+                // Process equipment
+                if (data.equipment && Array.isArray(data.equipment)) {
+                    currentProject.equipment = data.equipment.map(equip => {
+                        // Try to match contractor by name
+                        let contractorId = contractorIdMap[equip.contractorName];
+
+                        // If not found by exact name, try to find by partial match
+                        if (!contractorId && equip.contractorName) {
+                            const matchedContractor = currentProject.contractors.find(c =>
+                                c.name.toLowerCase().includes(equip.contractorName.toLowerCase()) ||
+                                equip.contractorName.toLowerCase().includes(c.name.toLowerCase())
+                            );
+                            if (matchedContractor) {
+                                contractorId = matchedContractor.id;
+                            }
+                        }
+
+                        // If still not found, use first contractor as fallback
+                        if (!contractorId && currentProject.contractors.length > 0) {
+                            contractorId = currentProject.contractors[0].id;
+                        }
+
+                        return {
+                            id: generateId('equip'),
+                            contractorId: contractorId || '',
+                            type: equip.type || '',
+                            model: equip.model || ''
+                        };
+                    }).filter(eq => eq.contractorId); // Only keep equipment with valid contractor
+                }
+
+                renderContractors();
+                renderEquipment();
+            }
+
+            // Setup input listeners to clear missing indicators when user types
+            setupMissingFieldListeners();
+        }
+
+        function generateAbbreviation(name) {
+            if (!name) return '';
+            // Take first letter of each word, max 4 characters
+            const words = name.split(/\s+/);
+            if (words.length === 1) {
+                return name.substring(0, 3).toUpperCase();
+            }
+            return words.map(w => w[0]).join('').substring(0, 4).toUpperCase();
+        }
+
+        function markFieldAsMissing(input) {
+            input.classList.add('missing-field');
+
+            // Create missing indicator if it doesn't exist
+            const parent = input.parentElement;
+            let indicator = parent.querySelector('.missing-indicator');
+            if (!indicator) {
+                indicator = document.createElement('p');
+                indicator.className = 'missing-indicator mt-1';
+                indicator.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Missing - please fill in';
+                parent.appendChild(indicator);
+            }
+        }
+
+        function clearMissingFieldIndicator(input) {
+            input.classList.remove('missing-field');
+            const parent = input.parentElement;
+            const indicator = parent.querySelector('.missing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        function setupMissingFieldListeners() {
+            const inputs = document.querySelectorAll('.missing-field');
+            inputs.forEach(input => {
+                // Remove existing listener if any to avoid duplicates
+                input.removeEventListener('input', handleMissingFieldInput);
+                input.addEventListener('input', handleMissingFieldInput);
+            });
+        }
+
+        function handleMissingFieldInput(e) {
+            const input = e.target;
+            if (input.value.trim() !== '') {
+                clearMissingFieldIndicator(input);
+            }
+        }
+
+        // Initialize drop zone when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSavedProjects();
+            setupDropZone();
+        });
     </script>
 
     <!-- PWA Navigation Fix -->
