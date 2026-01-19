@@ -448,14 +448,42 @@
                 </div>
             </div>
 
-            <!-- Visitors Section -->
+            <!-- Communications with Contractor Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="communications">
+                <button onclick="toggleSection('communications')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-dot-blue flex items-center justify-center">
+                        <i class="fas fa-comments text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">Communications with Contractor</p>
+                        <p id="communications-preview" class="text-sm text-slate-500 truncate">None reported</p>
+                    </div>
+                    <div id="communications-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <button onclick="markNA('communications')" id="communications-na-btn" class="w-full p-3 bg-slate-100 border border-slate-300 text-slate-600 hover:bg-slate-200 transition-colors text-sm font-medium uppercase">
+                            <i class="fas fa-ban mr-2"></i>No Communications - Mark as N/A
+                        </button>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase">Contractor Communications</label>
+                            <textarea id="contractor-communications-input" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="4" placeholder="Document any communications with contractors today (e.g., discussions about schedule, QC coordination, directives given)..."></textarea>
+                            <p class="text-xs text-slate-400 mt-1">Tap the <i class="fas fa-microphone text-xs"></i> on your keyboard to dictate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visitors/Deliveries/Remarks Section -->
             <div class="section-card bg-white border-2 border-slate-200" data-section="visitors">
                 <button onclick="toggleSection('visitors')" class="w-full p-4 flex items-center gap-4">
                     <div class="w-12 h-12 bg-dot-blue flex items-center justify-center">
-                        <i class="fas fa-user-tie text-white text-lg"></i>
+                        <i class="fas fa-truck-loading text-white text-lg"></i>
                     </div>
                     <div class="flex-1 text-left">
-                        <p class="font-bold text-slate-800 uppercase text-sm">Visitors & Communications</p>
+                        <p class="font-bold text-slate-800 uppercase text-xs leading-tight">Visitors; Deliveries; Additional Contract and/or Change Order Activities; Other Remarks</p>
                         <p id="visitors-preview" class="text-sm text-slate-500 truncate">None reported</p>
                     </div>
                     <div id="visitors-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
@@ -465,12 +493,12 @@
                 <div class="section-content">
                     <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
                         <button onclick="markNA('visitors')" id="visitors-na-btn" class="w-full p-3 bg-slate-100 border border-slate-300 text-slate-600 hover:bg-slate-200 transition-colors text-sm font-medium uppercase">
-                            <i class="fas fa-ban mr-2"></i>No Visitors - Mark as N/A
+                            <i class="fas fa-ban mr-2"></i>Nothing to Report - Mark as N/A
                         </button>
-                        <div id="visitors-list" class="space-y-2"></div>
-                        <div class="flex items-center gap-2">
-                            <textarea id="visitor-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="2" placeholder="Visitors, calls, communications..."></textarea>
-                            <button onclick="addVisitor()" class="px-4 py-3 bg-dot-blue hover:bg-blue-800 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase">Visitors, Deliveries & Remarks</label>
+                            <textarea id="visitors-remarks-input" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="4" placeholder="Document visitors, deliveries, change orders, and other remarks (e.g., DOT inspectors on site, material deliveries, change order work)..."></textarea>
+                            <p class="text-xs text-slate-400 mt-1">Tap the <i class="fas fa-microphone text-xs"></i> on your keyboard to dictate</p>
                         </div>
                     </div>
                 </div>
@@ -1413,6 +1441,13 @@
                     if (!parsed.reporter) parsed.reporter = { name: "" };
                     if (!parsed.project) parsed.project = { name: "", dayNumber: null };
                     if (parsed.additionalNotes === undefined) parsed.additionalNotes = "";
+                    // Migrate contractorCommunications (new field)
+                    if (parsed.contractorCommunications === undefined) parsed.contractorCommunications = "";
+                    // Migrate visitorsRemarks from array to string format
+                    if (Array.isArray(parsed.visitorsRemarks)) {
+                        parsed.visitorsRemarks = parsed.visitorsRemarks.join('\n');
+                    }
+                    if (parsed.visitorsRemarks === undefined) parsed.visitorsRemarks = "";
                     return parsed;
                 } catch (e) {}
             }
@@ -1436,7 +1471,10 @@
                     weather: { highTemp: "--", lowTemp: "--", precipitation: "0.00\"", generalCondition: "Syncing...", jobSiteCondition: "", adverseConditions: "N/A" }
                 },
                 contractors: [], activities: [], operations: [], equipment: [], generalIssues: [], qaqcNotes: [],
-                safety: { hasIncidents: false, noIncidents: false, notes: [] }, visitorsRemarks: [], photos: [],
+                safety: { hasIncidents: false, noIncidents: false, notes: [] },
+                contractorCommunications: "",
+                visitorsRemarks: "",
+                photos: [],
                 additionalNotes: ""
             };
         }
@@ -1613,13 +1651,8 @@
 
         function removeSafetyNote(index) { report.safety.notes.splice(index, 1); saveReport(); renderSection('safety'); }
 
-        function addVisitor() {
-            const input = document.getElementById('visitor-input');
-            const text = input.value.trim();
-            if (text) { report.visitorsRemarks.push(text); saveReport(); renderSection('visitors'); input.value = ''; }
-        }
-
-        function removeVisitor(index) { report.visitorsRemarks.splice(index, 1); saveReport(); renderSection('visitors'); }
+        // Note: addVisitor() and removeVisitor() are replaced by text area inputs
+        // contractorCommunications and visitorsRemarks are now strings, not arrays
 
         // ============ PHOTOS ============
         async function handlePhotoInput(e) {
@@ -1814,14 +1847,11 @@
                     `).join('') || '';
                     document.getElementById('has-incidents').checked = report.safety.hasIncidents;
                     break;
+                case 'communications':
+                    // Communications text area - value set via event listener
+                    break;
                 case 'visitors':
-                    document.getElementById('visitors-list').innerHTML = report.visitorsRemarks.map((v, i) => `
-                        <div class="bg-slate-50 border border-slate-200 p-3 flex items-start gap-3">
-                            <i class="fas fa-user text-dot-blue mt-0.5"></i>
-                            <p class="flex-1 text-sm text-slate-700">${v}</p>
-                            <button onclick="removeVisitor(${i})" class="text-red-400 hover:text-red-600"><i class="fas fa-trash text-xs"></i></button>
-                        </div>
-                    `).join('') || '';
+                    // Visitors/remarks text area - value set via event listener
                     break;
                 case 'photos':
                     document.getElementById('photos-grid').innerHTML = report.photos.map((p, i) => `
@@ -1853,7 +1883,7 @@
         }
 
         function renderAllSections() {
-            ['activities', 'operations', 'equipment', 'issues', 'inspections', 'safety', 'visitors', 'photos'].forEach(renderSection);
+            ['activities', 'operations', 'equipment', 'issues', 'inspections', 'safety', 'communications', 'visitors', 'photos'].forEach(renderSection);
             updateWeatherDisplay();
         }
 
@@ -1872,7 +1902,8 @@
             document.getElementById('issues-preview').textContent = naMarked.issues ? 'N/A - No issues' : report.generalIssues.length > 0 ? `${report.generalIssues.length} issues` : 'None reported';
             document.getElementById('inspections-preview').textContent = naMarked.inspections ? 'N/A - No inspections' : report.qaqcNotes.length > 0 ? `${report.qaqcNotes.length} inspections` : 'None reported';
             document.getElementById('safety-preview').textContent = report.safety.hasIncidents ? 'INCIDENT REPORTED' : report.safety.noIncidents ? 'No incidents (confirmed)' : report.safety.notes.length > 0 ? 'Notes added' : 'Tap to confirm';
-            document.getElementById('visitors-preview').textContent = naMarked.visitors ? 'N/A - No visitors' : report.visitorsRemarks.length > 0 ? `${report.visitorsRemarks.length} entries` : 'None reported';
+            document.getElementById('communications-preview').textContent = naMarked.communications ? 'N/A - None' : report.contractorCommunications ? 'Communications logged' : 'None reported';
+            document.getElementById('visitors-preview').textContent = naMarked.visitors ? 'N/A - None' : report.visitorsRemarks ? 'Remarks logged' : 'None reported';
             document.getElementById('photos-preview').textContent = naMarked.photos ? 'N/A - No photos' : report.photos.length > 0 ? `${report.photos.length} photos` : 'No photos';
             document.getElementById('notes-preview').textContent = report.additionalNotes ? 'Notes added' : 'Optional';
             updateStatusIcons();
@@ -1892,7 +1923,8 @@
                 'issues': report.generalIssues.length > 0 || naMarked.issues,
                 'inspections': report.qaqcNotes.length > 0 || naMarked.inspections,
                 'safety': report.safety.noIncidents || report.safety.hasIncidents || report.safety.notes.length > 0,
-                'visitors': report.visitorsRemarks.length > 0 || naMarked.visitors,
+                'communications': report.contractorCommunications || naMarked.communications,
+                'visitors': report.visitorsRemarks || naMarked.visitors,
                 'photos': report.photos.length > 0 || naMarked.photos,
                 'notes': report.additionalNotes  // Optional - shows check when filled
             };
@@ -1914,7 +1946,7 @@
         function updateProgress() {
             const naMarked = report.meta.naMarked || {};
             let filled = 0;
-            let total = 11; // reporter, project, weather, activities, operations, equipment, issues, inspections, safety, visitors, photos
+            let total = 12; // reporter, project, weather, activities, operations, equipment, issues, inspections, safety, communications, visitors, photos
 
             // Reporter - has name
             if (report.reporter?.name) filled++;
@@ -1945,8 +1977,11 @@
             // Safety - confirmed no incidents OR has incidents OR has notes
             if (report.safety.noIncidents === true || report.safety.hasIncidents === true || report.safety.notes.length > 0) filled++;
 
-            // Visitors - has visitors OR marked N/A
-            if (report.visitorsRemarks.length > 0 || naMarked.visitors) filled++;
+            // Communications - has communications OR marked N/A
+            if (report.contractorCommunications || naMarked.communications) filled++;
+
+            // Visitors/Remarks - has remarks OR marked N/A
+            if (report.visitorsRemarks || naMarked.visitors) filled++;
 
             // Photos - has photos OR marked N/A
             if (report.photos.length > 0 || naMarked.photos) filled++;
@@ -1982,7 +2017,7 @@
             if (report.meta.naMarked) { delete report.meta.naMarked[section]; }
             const btn = document.getElementById(`${section}-na-btn`);
             if (btn) {
-                const labels = { issues: 'No Issues - Mark as N/A', inspections: 'No Inspections - Mark as N/A', visitors: 'No Visitors - Mark as N/A', photos: 'No Photos - Mark as N/A' };
+                const labels = { issues: 'No Issues - Mark as N/A', inspections: 'No Inspections - Mark as N/A', communications: 'No Communications - Mark as N/A', visitors: 'Nothing to Report - Mark as N/A', photos: 'No Photos - Mark as N/A' };
                 btn.innerHTML = `<i class="fas fa-ban mr-2"></i>${labels[section] || 'Mark as N/A'}`;
                 btn.className = 'w-full p-3 bg-slate-100 border border-slate-300 text-slate-600 hover:bg-slate-200 transition-colors text-sm font-medium uppercase';
                 btn.onclick = () => markNA(section);
@@ -2170,6 +2205,20 @@
             saveReport();
         });
 
+        // Contractor communications input
+        document.getElementById('contractor-communications-input').addEventListener('change', (e) => {
+            report.contractorCommunications = e.target.value.trim();
+            saveReport();
+            updateAllPreviews();
+        });
+
+        // Visitors/remarks input
+        document.getElementById('visitors-remarks-input').addEventListener('change', (e) => {
+            report.visitorsRemarks = e.target.value.trim();
+            saveReport();
+            updateAllPreviews();
+        });
+
         document.getElementById('photoInput').addEventListener('change', handlePhotoInput);
 
         // ============ INIT ============
@@ -2210,6 +2259,8 @@
             document.getElementById('project-name-input').value = report.project?.name || '';
             document.getElementById('project-day-input').value = report.project?.dayNumber || '';
             document.getElementById('additional-notes-input').value = report.additionalNotes || '';
+            document.getElementById('contractor-communications-input').value = report.contractorCommunications || '';
+            document.getElementById('visitors-remarks-input').value = report.visitorsRemarks || '';
 
             document.getElementById('no-incidents').checked = report.safety.noIncidents || false;
             document.getElementById('has-incidents').checked = report.safety.hasIncidents || false;
