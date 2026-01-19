@@ -14,6 +14,7 @@
 - Ensure DOT compliance with structured reporting
 - GPS-verified, timestamped reports for legal protection
 - Optimized for mobile field use with native keyboard dictation support
+- Automated project setup via document import from existing reports
 
 ---
 
@@ -39,6 +40,8 @@
 | Canvas API | Image compression |
 | localStorage | Client-side data persistence |
 | Service Worker API | Offline caching and PWA support |
+| FileReader API | Document import and image handling |
+| Drag and Drop API | File upload for document import |
 
 ### Architecture
 - **Type**: Static Single Page Application (SPA)
@@ -95,7 +98,7 @@
 | `editor.html` | ~674 | Photo capture with GPS embedding, section-specific editing interface |
 | `permissions.html` | ~1,596 | Permission testing (mic, camera, GPS), iOS-specific instructions for native dictation |
 | `permission-debug.html` | ~1,074 | Debugging utility for troubleshooting permission issues |
-| `project-config.html` | ~1,090 | Project management with contractor roster, equipment inventory, and contract details |
+| `project-config.html` | ~1,581 | Project management with document import, contractor roster, equipment inventory, and contract details |
 | `settings.html` | ~396 | Inspector profile - personal information, title, company, and signature preview |
 | `landing.html` | ~1,560 | Marketing page with feature overview and onboarding |
 
@@ -372,11 +375,19 @@
      │    ├─► Active project highlighted with checkmark
      │    └─► Each project shows name, number, location
      │
-     ├─► Create new project
+     ├─► Create new project (Manual Entry)
      │    ├─► Project Details (name, number, location, engineer)
      │    ├─► Contract Information (NTP date, duration, completion)
      │    ├─► Contractor Roster (prime + subcontractors with trades)
      │    └─► Equipment Inventory (per contractor)
+     │
+     ├─► Create new project (Document Import)
+     │    ├─► Drag-and-drop or browse for PDF/DOCX files
+     │    ├─► Upload multiple files for extraction
+     │    ├─► Auto-populate form fields from extracted data
+     │    ├─► Missing fields highlighted with red indicators
+     │    ├─► Extraction notes displayed for uncertain values
+     │    └─► Review and save extracted project
      │
      ├─► Edit existing project
      │    └─► All fields editable, changes saved automatically
@@ -385,7 +396,53 @@
           └─► Selected project used for new reports
 ```
 
-### 3. Interview/Documentation Flow
+### 3. Document Import Workflow
+
+```
+[project-config.html] Import from Existing Report
+     │
+     ├─► User initiates import
+     │    ├─► Click "New Project" to open project form
+     │    └─► "Import from Existing Report" section at top of form
+     │
+     ├─► File Selection
+     │    ├─► Drag-and-drop files into drop zone
+     │    ├─► Or click to browse for files
+     │    ├─► Accepts: PDF, DOCX
+     │    ├─► Multiple files supported
+     │    └─► Selected files displayed with remove option
+     │
+     ├─► Extraction Process
+     │    ├─► Click "Extract Project Data"
+     │    ├─► Files converted to base64 and sent to webhook
+     │    ├─► Loading spinner during processing
+     │    └─► n8n workflow processes documents
+     │
+     ├─► Results Handling
+     │    ├─► Success: Green banner + form auto-populated
+     │    │    ├─► Project details filled (name, number, location)
+     │    │    ├─► Contract info populated (NTP, duration, dates)
+     │    │    ├─► Contractors added to roster
+     │    │    ├─► Equipment inventory populated
+     │    │    └─► Missing fields marked with red indicators
+     │    │
+     │    ├─► Extraction Notes (collapsible)
+     │    │    └─► Shows any uncertainties or assumptions made
+     │    │
+     │    └─► Error: Red banner with error message
+     │         └─► User can retry or enter data manually
+     │
+     ├─► User Review
+     │    ├─► Review all extracted values
+     │    ├─► Fill in any missing fields (red indicators)
+     │    ├─► Correct any extraction errors
+     │    └─► Add additional contractors/equipment as needed
+     │
+     └─► Save Project
+          └─► Project saved and ready for daily reports
+```
+
+### 4. Interview/Documentation Flow
 
 ```
 [quick-interview.html]
@@ -424,7 +481,7 @@
      └─► User clicks "Finish" ─► [review.html] (AI Kit)
 ```
 
-### 4. Voice Input Flow (Native Keyboard Dictation)
+### 5. Voice Input Flow (Native Keyboard Dictation)
 
 ```
 User enters text in any input field
@@ -445,7 +502,7 @@ providing consistent, reliable behavior across all platforms without custom
 microphone buttons.
 ```
 
-### 5. AI Kit Flow (review.html)
+### 6. AI Kit Flow (review.html)
 
 ```
 [review.html] Loaded with report data (AI Kit)
@@ -473,7 +530,7 @@ microphone buttons.
      └─► User clicks "Export" ─► [report.html]
 ```
 
-### 6. Report Generation Flow
+### 7. Report Generation Flow
 
 ```
 [report.html] Loaded with report data
@@ -500,7 +557,7 @@ microphone buttons.
           └─► Color-accurate printing
 ```
 
-### 7. Photo Capture Flow
+### 8. Photo Capture Flow
 
 ```
 User taps photo capture (camera icon)
@@ -591,11 +648,19 @@ tailwind.config = {
 
 ### n8n Webhook Configuration
 
-The application uses n8n webhooks for AI text refinement and report submission. Configure webhook URLs in the code:
+The application uses n8n webhooks for AI text refinement, report submission, and document extraction. Configure webhook URLs in the code:
 
-**Webhook Endpoints (in AI Kit `review.html` and `report.html`):**
-- **N8N_REFINE_WEBHOOK**: Endpoint for AI text refinement requests
-- **N8N_SUBMIT_WEBHOOK**: Endpoint for submitting completed reports
+**Webhook Endpoints:**
+| Endpoint | Location | Purpose |
+|----------|----------|---------|
+| **N8N_REFINE_WEBHOOK** | `review.html` | AI text refinement requests |
+| **N8N_SUBMIT_WEBHOOK** | `report.html` | Submitting completed reports |
+| **EXTRACT_WEBHOOK_URL** | `project-config.html` | Document extraction for project setup |
+
+**Production Webhook URLs (n8n Cloud):**
+- Refine: `https://advidere.app.n8n.cloud/webhook/fieldvoice-refine`
+- Submit: `https://advidere.app.n8n.cloud/webhook/fieldvoice-submit`
+- Extract: `https://advidere.app.n8n.cloud/webhook/fieldvoice-project-extractor`
 
 **Webhook Request Format (Refine):**
 ```javascript
@@ -610,10 +675,58 @@ The application uses n8n webhooks for AI text refinement and report submission. 
 }
 ```
 
-**Expected Response:**
+**Webhook Request Format (Document Extraction):**
+```javascript
+{
+    files: [
+        {
+            name: "RPR_Daily_Report.pdf",
+            type: "application/pdf",
+            content: "base64-encoded-file-content"
+        }
+    ]
+}
+```
+
+**Expected Response (Refine):**
 ```javascript
 {
     refinedText: "Professionally refined text"
+}
+```
+
+**Expected Response (Document Extraction):**
+```javascript
+{
+    success: true,
+    projectName: "I-10 Bridge Reconstruction",
+    noabProjectNo: "1291",
+    cnoSolicitationNo: "N/A",
+    location: "Jefferson Highway at Mississippi River",
+    engineer: "AECOM",
+    primeContractor: "Boh Bros Construction",
+    noticeToProceed: "2025-01-15",      // ISO date format
+    contractDuration: 467,               // Days as number
+    expectedCompletion: "2026-04-25",   // ISO date format
+    defaultStartTime: "06:00",          // 24-hour format
+    defaultEndTime: "16:00",            // 24-hour format
+    weatherDays: 0,
+    contractors: [
+        {
+            name: "Boh Bros Construction",
+            abbreviation: "BOH",
+            type: "prime",
+            trades: "General; Pile Driving"
+        }
+    ],
+    equipment: [
+        {
+            type: "Excavator",
+            model: "CAT 336",
+            contractorName: "Boh Bros Construction"
+        }
+    ],
+    notes: ["Note about extraction uncertainties"]
 }
 ```
 
@@ -714,7 +827,7 @@ const CACHE_NAME = `fieldvoice-pro-${CACHE_VERSION}`;
 To force a cache update, increment the version number in `sw.js`.
 
 **Cached Files:**
-- All 9 HTML files
+- All 10 HTML files
 - `manifest.json`
 - App icons (192x192, 512x512)
 - Tailwind CSS CDN
@@ -871,19 +984,19 @@ npx serve .
 |------|-------|---------------|
 | index.html | 880 | 42 KB |
 | quick-interview.html | 2,345 | 130 KB |
-| review.html | 1,296 | 65 KB |
-| report.html | 883 | 44 KB |
+| review.html | 1,296 | 64 KB |
+| report.html | 883 | 43 KB |
 | editor.html | 674 | 32 KB |
 | permissions.html | 1,596 | 81 KB |
 | permission-debug.html | 1,074 | 53 KB |
-| project-config.html | 1,090 | 55 KB |
+| project-config.html | 1,581 | 77 KB |
 | settings.html | 396 | 19 KB |
 | landing.html | 1,560 | 80 KB |
 | sw.js | 205 | 7 KB |
 | manifest.json | 65 | 2 KB |
 | icons/ | - | ~3 KB |
 | assets/ | - | ~325 KB |
-| **Total** | **~12,064** | **~938 KB** |
+| **Total** | **~12,555** | **~958 KB** |
 
 ---
 
@@ -930,6 +1043,19 @@ Extend the `weatherCodes` object in `index.html` (lines 418-433) with additional
 ---
 
 ## Recent Changes
+
+### Document Import System (January 2026)
+- **New feature in project-config.html** - Automated project data extraction from existing reports
+  - Drag-and-drop file upload for PDF and DOCX documents
+  - Multi-file support for comprehensive extraction
+  - Automatic form field population from extracted data
+  - Missing field indicators (red styling) for incomplete extractions
+  - Collapsible extraction notes section for uncertain values
+  - Auto-population of contractor roster from document data
+  - Equipment inventory extraction with contractor matching
+  - Success/error banner feedback with detailed messages
+  - Loading spinner animation during webhook processing
+  - Webhook integration: `fieldvoice-project-extractor` endpoint
 
 ### Project Configuration System (January 2026)
 - **New page: project-config.html** - Comprehensive project management interface
@@ -1035,6 +1161,7 @@ Extend the `weatherCodes` object in `index.html` (lines 418-433) with additional
 
 FieldVoice Pro is a sophisticated, production-ready field documentation system that:
 - **Multi-project management** - Configure and switch between multiple construction projects with contractor rosters and equipment inventories
+- **Document import** - Automatically extract project data from existing PDF/DOCX reports via AI-powered document processing
 - **Fully installable as a PWA** - Works offline when saved to home screen on mobile devices
 - **DOT-compliant reporting** - Contractor-based work entry, personnel tracking, and equipment status matching DOT form requirements
 - **AI Kit integration** - Side-by-side text refinement with training data export for prompt improvement
@@ -1042,10 +1169,10 @@ FieldVoice Pro is a sophisticated, production-ready field documentation system t
 - Supports voice-first data entry via native keyboard dictation with AI enhancement
 - Generates professional, DOT-compliant PDF reports with 12 comprehensive sections
 - **Complete offline support** for report creation, editing, and viewing (weather sync and AI features require internet)
-- Uses n8n webhooks for AI text refinement and report submission
+- Uses n8n webhooks for AI text refinement, report submission, and document extraction
 - Manages browser storage efficiently with automatic compression
 - **Service worker caching** ensures fast load times and airplane mode compatibility
 - **Safe-area support** for modern iOS devices with notch/Dynamic Island
 - **Streamlined navigation** with project picker, Home buttons, and improved workflow tracking
 
-The codebase is mature (~12,000 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
+The codebase is mature (~12,500 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
