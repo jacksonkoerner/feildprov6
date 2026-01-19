@@ -234,6 +234,61 @@
                 </div>
             </div>
 
+            <!-- Personnel/Operations Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="operations">
+                <button onclick="toggleSection('operations')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-dot-blue flex items-center justify-center">
+                        <i class="fas fa-users text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">Personnel / Operations</p>
+                        <p id="operations-preview" class="text-sm text-slate-500 truncate">Tap to add</p>
+                    </div>
+                    <div id="operations-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <!-- No project warning -->
+                        <div id="no-project-warning-ops" class="hidden bg-dot-orange/10 border-2 border-dashed border-dot-orange p-4 text-center">
+                            <i class="fas fa-exclamation-triangle text-dot-orange text-xl mb-2"></i>
+                            <p class="text-sm font-bold text-dot-orange uppercase mb-1">No Project Selected</p>
+                            <p class="text-xs text-slate-600 mb-3">Select a project to load contractors</p>
+                            <a href="project-config.html" class="inline-block px-4 py-2 bg-dot-orange text-white text-sm font-bold uppercase">Setup Project</a>
+                        </div>
+                        <!-- Personnel header row -->
+                        <div id="personnel-header" class="hidden bg-dot-navy text-white text-[9px] font-bold uppercase tracking-wider">
+                            <div class="grid grid-cols-7 gap-1 p-2">
+                                <div class="col-span-1">Contractor</div>
+                                <div class="text-center">Supt</div>
+                                <div class="text-center">Frmn</div>
+                                <div class="text-center">Oper</div>
+                                <div class="text-center">Labr</div>
+                                <div class="text-center">Surv</div>
+                                <div class="text-center">Othr</div>
+                            </div>
+                        </div>
+                        <!-- Personnel rows -->
+                        <div id="personnel-list" class="space-y-2">
+                            <!-- Rendered by renderPersonnelCards() -->
+                        </div>
+                        <!-- Total row -->
+                        <div id="personnel-totals" class="hidden bg-slate-100 border-2 border-slate-300">
+                            <div class="grid grid-cols-7 gap-1 p-2 text-xs font-bold">
+                                <div class="col-span-1 text-slate-600 uppercase">Total</div>
+                                <div id="total-supt" class="text-center text-dot-blue">0</div>
+                                <div id="total-frmn" class="text-center text-dot-blue">0</div>
+                                <div id="total-oper" class="text-center text-dot-blue">0</div>
+                                <div id="total-labr" class="text-center text-dot-blue">0</div>
+                                <div id="total-surv" class="text-center text-dot-blue">0</div>
+                                <div id="total-othr" class="text-center text-dot-blue">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Issues Section -->
             <div class="section-card bg-white border-2 border-slate-200" data-section="issues">
                 <button onclick="toggleSection('issues')" class="w-full p-4 flex items-center gap-4">
@@ -773,6 +828,263 @@
             return `${withWork.length} working, ${noWork.length} idle`;
         }
 
+        // ============ PERSONNEL / OPERATIONS ============
+        function getTradeAbbreviation(trades) {
+            if (!trades) return '';
+            // Common trade abbreviations
+            const abbreviations = {
+                'pile driving': 'PLE',
+                'piling': 'PLE',
+                'concrete': 'CONC',
+                'concrete pvmt': 'CONC',
+                'asphalt': 'ASP',
+                'utilities': 'UTL',
+                'earthwork': 'ERTHWRK',
+                'grading': 'GRAD',
+                'demolition': 'DEMO',
+                'demo': 'DEMO',
+                'electrical': 'ELEC',
+                'plumbing': 'PLMB',
+                'mechanical': 'MECH',
+                'structural': 'STRUC',
+                'steel': 'STL',
+                'masonry': 'MASN',
+                'roofing': 'ROOF',
+                'painting': 'PAINT',
+                'landscaping': 'LNDSCP',
+                'survey': 'SURV',
+                'surveying': 'SURV',
+                'traffic': 'TRAF',
+                'signage': 'SIGN',
+                'drainage': 'DRAIN',
+                'cm/pm': 'CM/PM',
+                'general': 'GEN'
+            };
+
+            // Split by semicolon and abbreviate each trade
+            return trades.split(';').map(trade => {
+                const trimmed = trade.trim().toLowerCase();
+                // Check if we have a known abbreviation
+                for (const [key, abbr] of Object.entries(abbreviations)) {
+                    if (trimmed.includes(key)) {
+                        return abbr;
+                    }
+                }
+                // If no match, use first 4 chars uppercase
+                return trimmed.substring(0, 4).toUpperCase();
+            }).join('; ');
+        }
+
+        function getContractorOperations(contractorId) {
+            if (!report || !report.operations) return null;
+            return report.operations.find(o => o.contractorId === contractorId);
+        }
+
+        function initializeOperations() {
+            if (!report.operations) report.operations = [];
+
+            // Ensure each contractor has an operations entry
+            projectContractors.forEach(contractor => {
+                const existing = report.operations.find(o => o.contractorId === contractor.id);
+                if (!existing) {
+                    report.operations.push({
+                        contractorId: contractor.id,
+                        superintendents: null,
+                        foremen: null,
+                        operators: null,
+                        laborers: null,
+                        surveyors: null,
+                        others: null
+                    });
+                }
+            });
+        }
+
+        function renderPersonnelCards() {
+            const container = document.getElementById('personnel-list');
+            const warningEl = document.getElementById('no-project-warning-ops');
+            const headerEl = document.getElementById('personnel-header');
+            const totalsEl = document.getElementById('personnel-totals');
+
+            if (!activeProject || projectContractors.length === 0) {
+                warningEl.classList.remove('hidden');
+                headerEl.classList.add('hidden');
+                totalsEl.classList.add('hidden');
+                container.innerHTML = '';
+                return;
+            }
+
+            warningEl.classList.add('hidden');
+            headerEl.classList.remove('hidden');
+            totalsEl.classList.remove('hidden');
+            initializeOperations();
+
+            container.innerHTML = projectContractors.map((contractor) => {
+                const ops = getContractorOperations(contractor.id) || {
+                    superintendents: null, foremen: null, operators: null,
+                    laborers: null, surveyors: null, others: null
+                };
+                const typeLabel = contractor.type === 'prime' ? 'P' : 'S';
+                const tradeAbbr = getTradeAbbreviation(contractor.trades);
+                const borderColor = contractor.type === 'prime' ? 'border-l-safety-green' : 'border-l-dot-blue';
+
+                return `
+                    <div class="bg-white border border-slate-200 ${borderColor} border-l-4" data-ops-contractor-id="${contractor.id}">
+                        <div class="grid grid-cols-7 gap-1 p-2 items-center">
+                            <!-- Contractor Info -->
+                            <div class="col-span-1 min-w-0">
+                                <p class="text-[10px] font-bold text-slate-700 truncate" title="${escapeHtml(contractor.name)}">${escapeHtml(contractor.abbreviation)}</p>
+                                <p class="text-[8px] text-slate-400 truncate" title="${escapeHtml(contractor.trades || '')}">${tradeAbbr || typeLabel}</p>
+                            </div>
+                            <!-- Superintendents -->
+                            <div class="text-center">
+                                <input type="number" min="0" max="99"
+                                    id="ops-supt-${contractor.id}"
+                                    value="${ops.superintendents || ''}"
+                                    onchange="updateOperations('${contractor.id}')"
+                                    class="w-full h-8 text-center text-sm border border-slate-300 focus:border-dot-blue focus:outline-none bg-white"
+                                    placeholder="-">
+                            </div>
+                            <!-- Foremen -->
+                            <div class="text-center">
+                                <input type="number" min="0" max="99"
+                                    id="ops-frmn-${contractor.id}"
+                                    value="${ops.foremen || ''}"
+                                    onchange="updateOperations('${contractor.id}')"
+                                    class="w-full h-8 text-center text-sm border border-slate-300 focus:border-dot-blue focus:outline-none bg-white"
+                                    placeholder="-">
+                            </div>
+                            <!-- Operators -->
+                            <div class="text-center">
+                                <input type="number" min="0" max="99"
+                                    id="ops-oper-${contractor.id}"
+                                    value="${ops.operators || ''}"
+                                    onchange="updateOperations('${contractor.id}')"
+                                    class="w-full h-8 text-center text-sm border border-slate-300 focus:border-dot-blue focus:outline-none bg-white"
+                                    placeholder="-">
+                            </div>
+                            <!-- Laborers -->
+                            <div class="text-center">
+                                <input type="number" min="0" max="99"
+                                    id="ops-labr-${contractor.id}"
+                                    value="${ops.laborers || ''}"
+                                    onchange="updateOperations('${contractor.id}')"
+                                    class="w-full h-8 text-center text-sm border border-slate-300 focus:border-dot-blue focus:outline-none bg-white"
+                                    placeholder="-">
+                            </div>
+                            <!-- Surveyors -->
+                            <div class="text-center">
+                                <input type="number" min="0" max="99"
+                                    id="ops-surv-${contractor.id}"
+                                    value="${ops.surveyors || ''}"
+                                    onchange="updateOperations('${contractor.id}')"
+                                    class="w-full h-8 text-center text-sm border border-slate-300 focus:border-dot-blue focus:outline-none bg-white"
+                                    placeholder="-">
+                            </div>
+                            <!-- Others -->
+                            <div class="text-center">
+                                <input type="number" min="0" max="99"
+                                    id="ops-othr-${contractor.id}"
+                                    value="${ops.others || ''}"
+                                    onchange="updateOperations('${contractor.id}')"
+                                    class="w-full h-8 text-center text-sm border border-slate-300 focus:border-dot-blue focus:outline-none bg-white"
+                                    placeholder="-">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updatePersonnelTotals();
+        }
+
+        function updateOperations(contractorId) {
+            const ops = report.operations.find(o => o.contractorId === contractorId);
+            if (!ops) return;
+
+            const getValue = (id) => {
+                const input = document.getElementById(id);
+                if (!input) return null;
+                const val = parseInt(input.value);
+                return isNaN(val) ? null : val;
+            };
+
+            ops.superintendents = getValue(`ops-supt-${contractorId}`);
+            ops.foremen = getValue(`ops-frmn-${contractorId}`);
+            ops.operators = getValue(`ops-oper-${contractorId}`);
+            ops.laborers = getValue(`ops-labr-${contractorId}`);
+            ops.surveyors = getValue(`ops-surv-${contractorId}`);
+            ops.others = getValue(`ops-othr-${contractorId}`);
+
+            saveReport();
+            updatePersonnelTotals();
+            updateAllPreviews();
+        }
+
+        function updatePersonnelTotals() {
+            if (!report || !report.operations) return;
+
+            let totals = {
+                superintendents: 0,
+                foremen: 0,
+                operators: 0,
+                laborers: 0,
+                surveyors: 0,
+                others: 0
+            };
+
+            report.operations.forEach(ops => {
+                totals.superintendents += ops.superintendents || 0;
+                totals.foremen += ops.foremen || 0;
+                totals.operators += ops.operators || 0;
+                totals.laborers += ops.laborers || 0;
+                totals.surveyors += ops.surveyors || 0;
+                totals.others += ops.others || 0;
+            });
+
+            document.getElementById('total-supt').textContent = totals.superintendents || '-';
+            document.getElementById('total-frmn').textContent = totals.foremen || '-';
+            document.getElementById('total-oper').textContent = totals.operators || '-';
+            document.getElementById('total-labr').textContent = totals.laborers || '-';
+            document.getElementById('total-surv').textContent = totals.surveyors || '-';
+            document.getElementById('total-othr').textContent = totals.others || '-';
+        }
+
+        function getOperationsPreview() {
+            if (!report || !report.operations || !projectContractors.length) {
+                return 'Tap to add';
+            }
+
+            let totalPersonnel = 0;
+            let contractorsWithPersonnel = 0;
+
+            report.operations.forEach(ops => {
+                const count = (ops.superintendents || 0) + (ops.foremen || 0) +
+                              (ops.operators || 0) + (ops.laborers || 0) +
+                              (ops.surveyors || 0) + (ops.others || 0);
+                totalPersonnel += count;
+                if (count > 0) contractorsWithPersonnel++;
+            });
+
+            if (totalPersonnel === 0) {
+                return 'Tap to add';
+            }
+
+            return `${totalPersonnel} personnel from ${contractorsWithPersonnel} contractor${contractorsWithPersonnel !== 1 ? 's' : ''}`;
+        }
+
+        function hasOperationsData() {
+            if (!report || !report.operations) return false;
+            return report.operations.some(ops =>
+                (ops.superintendents !== null && ops.superintendents > 0) ||
+                (ops.foremen !== null && ops.foremen > 0) ||
+                (ops.operators !== null && ops.operators > 0) ||
+                (ops.laborers !== null && ops.laborers > 0) ||
+                (ops.surveyors !== null && ops.surveyors > 0) ||
+                (ops.others !== null && ops.others > 0)
+            );
+        }
+
         // ============ STORAGE ============
         function getTodayKey() { return `fieldvoice_report_${new Date().toISOString().split('T')[0]}`; }
 
@@ -1163,6 +1475,10 @@
                     // Contractor-based work cards are rendered by renderContractorWorkCards()
                     renderContractorWorkCards();
                     break;
+                case 'operations':
+                    // Personnel cards are rendered by renderPersonnelCards()
+                    renderPersonnelCards();
+                    break;
                 case 'issues':
                     document.getElementById('issues-list').innerHTML = report.generalIssues.map((issue, i) => `
                         <div class="bg-red-50 border border-red-200 p-3 flex items-start gap-3">
@@ -1230,7 +1546,7 @@
         }
 
         function renderAllSections() {
-            ['activities', 'issues', 'inspections', 'safety', 'visitors', 'photos'].forEach(renderSection);
+            ['activities', 'operations', 'issues', 'inspections', 'safety', 'visitors', 'photos'].forEach(renderSection);
             updateWeatherDisplay();
         }
 
@@ -1243,6 +1559,7 @@
             const w = report.overview.weather;
             document.getElementById('weather-preview').textContent = w.jobSiteCondition || `${w.generalCondition}, ${w.highTemp}`;
             document.getElementById('activities-preview').textContent = getWorkSummaryPreview();
+            document.getElementById('operations-preview').textContent = getOperationsPreview();
             const naMarked = report.meta.naMarked || {};
             document.getElementById('issues-preview').textContent = naMarked.issues ? 'N/A - No issues' : report.generalIssues.length > 0 ? `${report.generalIssues.length} issues` : 'None reported';
             document.getElementById('inspections-preview').textContent = naMarked.inspections ? 'N/A - No inspections' : report.qaqcNotes.length > 0 ? `${report.qaqcNotes.length} inspections` : 'None reported';
@@ -1262,6 +1579,7 @@
                 'project': report.project?.name && report.project?.dayNumber,
                 'weather': report.overview.weather.jobSiteCondition,
                 'activities': hasWorkLogged || allMarkedNoWork,
+                'operations': hasOperationsData(),
                 'issues': report.generalIssues.length > 0 || naMarked.issues,
                 'inspections': report.qaqcNotes.length > 0 || naMarked.inspections,
                 'safety': report.safety.noIncidents || report.safety.hasIncidents || report.safety.notes.length > 0,
@@ -1287,7 +1605,7 @@
         function updateProgress() {
             const naMarked = report.meta.naMarked || {};
             let filled = 0;
-            let total = 9; // reporter, project, weather, activities, issues, inspections, safety, visitors, photos
+            let total = 10; // reporter, project, weather, activities, operations, issues, inspections, safety, visitors, photos
 
             // Reporter - has name
             if (report.reporter?.name) filled++;
@@ -1302,6 +1620,9 @@
             const hasWorkLogged = report.activities && report.activities.some(a => !a.noWork || a.narrative);
             const allMarkedNoWork = report.activities && report.activities.length > 0 && report.activities.every(a => a.noWork);
             if (hasWorkLogged || allMarkedNoWork) filled++;
+
+            // Operations - has personnel data entered
+            if (hasOperationsData()) filled++;
 
             // Issues - has issues OR marked N/A
             if (report.generalIssues.length > 0 || naMarked.issues) filled++;
