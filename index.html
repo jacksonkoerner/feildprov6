@@ -270,28 +270,85 @@
         }
 
         function beginDailyReport() {
-            const project = getActiveProject();
-            if (!project) {
-                showNoProjectModal();
-                return;
-            }
-            window.location.href = 'quick-interview.html';
+            showProjectPickerModal();
         }
 
         function continueDailyReport() {
             window.location.href = 'quick-interview.html';
         }
 
-        function showNoProjectModal() {
-            document.getElementById('noProjectModal').classList.remove('hidden');
+        // ============ PROJECT PICKER MODAL ============
+        function showProjectPickerModal() {
+            const modal = document.getElementById('projectPickerModal');
+            const listContainer = document.getElementById('projectPickerList');
+            const projects = getProjects();
+            const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
+
+            if (projects.length === 0) {
+                // No projects configured
+                listContainer.innerHTML = `
+                    <div class="p-8 text-center">
+                        <div class="w-16 h-16 bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-folder-open text-slate-400 text-2xl"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">No Projects Configured</p>
+                        <p class="text-sm text-slate-500 mb-6">Create a project to start generating daily reports</p>
+                        <button onclick="goToProjectSetup()" class="w-full p-4 bg-safety-green hover:bg-green-700 text-white font-bold uppercase transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-plus"></i>
+                            Create Project
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Render project list
+                listContainer.innerHTML = projects.map(project => {
+                    const isActive = project.id === activeId;
+                    return `
+                        <button onclick="selectProjectAndProceed('${project.id}')" class="w-full p-4 text-left hover:bg-slate-50 transition-colors border-b border-slate-200 last:border-b-0 ${isActive ? 'bg-safety-green/5' : ''}">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 ${isActive ? 'bg-safety-green' : 'bg-dot-blue'} flex items-center justify-center shrink-0">
+                                    <i class="fas ${isActive ? 'fa-check' : 'fa-building'} text-white"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <p class="font-bold text-slate-800 truncate">${escapeHtml(project.name)}</p>
+                                        ${isActive ? '<span class="shrink-0 text-[10px] bg-safety-green text-white px-2 py-0.5 font-bold uppercase">Active</span>' : ''}
+                                    </div>
+                                    <p class="text-xs text-slate-500 truncate mt-0.5">
+                                        ${project.noabProjectNo ? `#${escapeHtml(project.noabProjectNo)}` : ''}
+                                        ${project.noabProjectNo && project.location ? ' • ' : ''}
+                                        ${project.location ? escapeHtml(project.location) : ''}
+                                        ${!project.noabProjectNo && !project.location ? 'No details' : ''}
+                                    </p>
+                                </div>
+                                <i class="fas fa-chevron-right text-slate-400 shrink-0"></i>
+                            </div>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            modal.classList.remove('hidden');
         }
 
-        function closeNoProjectModal() {
-            document.getElementById('noProjectModal').classList.add('hidden');
+        function closeProjectPickerModal() {
+            document.getElementById('projectPickerModal').classList.add('hidden');
+        }
+
+        function selectProjectAndProceed(projectId) {
+            // Set as active project
+            localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+
+            // Update the active project card on dashboard (visible when they return)
+            updateActiveProjectCard();
+
+            // Close modal and proceed
+            closeProjectPickerModal();
+            window.location.href = 'quick-interview.html';
         }
 
         function goToProjectSetup() {
-            closeNoProjectModal();
+            closeProjectPickerModal();
             window.location.href = 'project-config.html';
         }
 
@@ -714,27 +771,33 @@
         });
     </script>
 
-    <!-- No Project Modal -->
-    <div id="noProjectModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white max-w-sm w-full shadow-xl">
-            <div class="bg-dot-orange p-4">
-                <div class="flex items-center gap-3 text-white">
-                    <i class="fas fa-exclamation-triangle text-xl"></i>
-                    <h3 class="font-bold uppercase tracking-wider">Project Required</h3>
+    <!-- Project Picker Modal -->
+    <div id="projectPickerModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white max-w-sm w-full shadow-xl max-h-[80vh] flex flex-col">
+            <!-- Header -->
+            <div class="bg-dot-navy p-4 shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 text-white">
+                        <i class="fas fa-folder-open text-dot-yellow"></i>
+                        <h3 class="font-bold uppercase tracking-wider">Select Project</h3>
+                    </div>
+                    <button onclick="closeProjectPickerModal()" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             </div>
-            <div class="p-6">
-                <p class="text-slate-700 mb-2">You need to select an active project before creating a daily report.</p>
-                <p class="text-sm text-slate-500 mb-6">Configure your project details including contractors, equipment, and contract information.</p>
-                <div class="space-y-3">
-                    <button onclick="goToProjectSetup()" class="w-full p-4 bg-safety-green hover:bg-green-700 text-white font-bold uppercase transition-colors flex items-center justify-center gap-2">
-                        <i class="fas fa-folder-open"></i>
-                        Setup Project
-                    </button>
-                    <button onclick="closeNoProjectModal()" class="w-full p-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold uppercase transition-colors text-sm">
-                        Cancel
-                    </button>
-                </div>
+
+            <!-- Project List (scrollable) -->
+            <div id="projectPickerList" class="flex-1 overflow-y-auto">
+                <!-- Projects rendered here by showProjectPickerModal() -->
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-slate-200 bg-slate-50 shrink-0">
+                <a href="project-config.html" class="flex items-center justify-center gap-2 text-sm text-dot-blue hover:text-dot-navy font-bold uppercase transition-colors">
+                    <i class="fas fa-cog"></i>
+                    Manage Projects
+                </a>
             </div>
         </div>
     </div>
