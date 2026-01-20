@@ -181,7 +181,13 @@
                     </h2>
                 </div>
                 <div class="p-4 space-y-3">
-                    <p class="text-xs text-slate-500">If the app isn't working correctly or you want to get the latest version, use this option to refresh the app cache.</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Having issues with the app not loading correctly, features not working, or want to ensure you have the latest version?
+                        Use the refresh option below to clear the app cache and download fresh files.
+                    </p>
+                    <p class="text-xs text-slate-400">
+                        This clears cached files only - your reports, settings, and project data are safely stored separately.
+                    </p>
                     <button onclick="refreshApp()" class="w-full p-4 bg-slate-500 text-white font-bold uppercase hover:bg-slate-600 transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-sync-alt"></i>
                         Refresh App
@@ -327,34 +333,64 @@
             setTimeout(() => toast.remove(), 3000);
         }
 
-        async function refreshApp() {
-            const confirmed = confirm('This will refresh the app to get the latest version. Your reports and settings will be kept. Continue?');
-            if (!confirmed) return;
+        // PWA Refresh Functions
+        function refreshApp() {
+            console.log('[PWA Refresh] Opening refresh confirmation modal');
+            const modal = document.getElementById('refresh-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
 
+        function hideRefreshModal() {
+            console.log('[PWA Refresh] Closing refresh modal');
+            const modal = document.getElementById('refresh-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        async function executeRefresh() {
+            console.log('[PWA Refresh] Starting app refresh...');
+
+            // Hide modal first
+            hideRefreshModal();
+
+            // Show toast notification
             showToast('Refreshing app...', 'warning');
 
             try {
-                // Unregister all service workers
-                if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (const registration of registrations) {
-                        await registration.unregister();
-                    }
-                }
-
-                // Clear all caches (but NOT localStorage - reports and settings are preserved)
+                // IMPORTANT: Delete caches BEFORE unregistering service workers (order matters!)
                 if ('caches' in window) {
+                    console.log('[PWA Refresh] Deleting all caches...');
                     const cacheNames = await caches.keys();
-                    for (const cacheName of cacheNames) {
-                        await caches.delete(cacheName);
-                    }
+                    await Promise.all(cacheNames.map(cacheName => {
+                        console.log('[PWA Refresh] Deleting cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }));
+                    console.log('[PWA Refresh] All caches deleted:', cacheNames);
                 }
 
-                // Reload the page to get fresh code
-                window.location.reload(true);
+                // Unregister all service workers AFTER caches are deleted
+                if ('serviceWorker' in navigator) {
+                    console.log('[PWA Refresh] Unregistering service workers...');
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(registration => {
+                        console.log('[PWA Refresh] Unregistering SW:', registration.scope);
+                        return registration.unregister();
+                    }));
+                    console.log('[PWA Refresh] All service workers unregistered:', registrations.length);
+                }
+
+                console.log('[PWA Refresh] Reloading page...');
+                // Note: localStorage is preserved - user data is safe
+                window.location.reload();
+
             } catch (error) {
-                console.error('Error refreshing app:', error);
-                showToast('Error refreshing app. Please try again.', 'error');
+                console.error('[PWA Refresh] Error during refresh:', error);
+                showToast('Error refreshing. Try removing and re-adding the app.', 'error');
             }
         }
 
@@ -365,6 +401,61 @@
 
         document.addEventListener('DOMContentLoaded', loadSettings);
     </script>
+
+    <!-- Refresh App Confirmation Modal -->
+    <div id="refresh-modal" class="fixed inset-0 bg-black/70 z-[9998] hidden items-center justify-center p-4">
+        <div class="bg-white max-w-sm w-full shadow-xl">
+            <!-- Modal Header -->
+            <div class="bg-dot-slate text-white p-4 text-center">
+                <div class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-sync-alt text-3xl"></i>
+                </div>
+                <h3 class="text-lg font-bold uppercase">Refresh App</h3>
+                <p class="text-sm text-slate-300 mt-1">Update to the latest version</p>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-4 space-y-4">
+                <!-- Instructions -->
+                <div class="space-y-3">
+                    <p class="text-sm text-slate-600 font-medium">After refreshing, follow these steps:</p>
+                    <ol class="space-y-2 text-sm text-slate-600">
+                        <li class="flex items-start gap-3">
+                            <span class="w-6 h-6 bg-dot-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                            <span>Wait for the page to reload automatically</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="w-6 h-6 bg-dot-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                            <span>Close the app completely (swipe up from app switcher)</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="w-6 h-6 bg-dot-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                            <span>Reopen the app from your home screen</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- Reassurance -->
+                <div class="bg-safety-green/10 border border-safety-green/30 p-3">
+                    <p class="text-xs text-safety-green font-medium flex items-center gap-2">
+                        <i class="fas fa-shield-alt"></i>
+                        Your reports and settings will be preserved
+                    </p>
+                </div>
+            </div>
+
+            <!-- Modal Actions -->
+            <div class="p-4 border-t border-slate-200 space-y-2">
+                <button onclick="executeRefresh()" class="w-full p-4 bg-dot-slate text-white font-bold uppercase hover:bg-slate-700 transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-sync-alt"></i>
+                    Continue
+                </button>
+                <button onclick="hideRefreshModal()" class="w-full p-3 bg-slate-100 text-slate-600 font-bold uppercase hover:bg-slate-200 transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- PWA Navigation Fix - Prevent Safari from breaking out of standalone mode -->
     <script>
