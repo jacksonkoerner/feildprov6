@@ -59,12 +59,22 @@
                 <a href="index.html" class="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" title="Home">
                     <i class="fas fa-home text-slate-600"></i>
                 </a>
-                <a href="review.html" class="flex items-center gap-2 text-slate-600 font-bold hover:text-slate-800 transition-colors">
+                <!-- Standard navigation (hidden in readonly mode) -->
+                <a id="nav-ai-kit" href="review.html" class="flex items-center gap-2 text-slate-600 font-bold hover:text-slate-800 transition-colors">
                     <i class="fas fa-arrow-left"></i>
                     <span class="hidden sm:inline">Back to AI Kit</span>
                 </a>
+                <!-- Readonly navigation (hidden by default) -->
+                <a id="nav-archives" href="archives.html" class="hidden flex items-center gap-2 text-slate-600 font-bold hover:text-slate-800 transition-colors">
+                    <i class="fas fa-arrow-left"></i>
+                    <span class="hidden sm:inline">Back to Archives</span>
+                </a>
             </div>
             <div class="flex items-center gap-2">
+                <!-- View Only badge (hidden by default) -->
+                <span id="readonly-badge" class="hidden px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg font-bold text-xs uppercase tracking-wide">
+                    <i class="fas fa-eye mr-1"></i>View Only
+                </span>
                 <button id="submit-report-btn" onclick="showSubmitConfirmation()" class="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-sm shadow-md hover:bg-orange-700 transition-colors">
                     <i class="fas fa-cloud-upload-alt mr-1"></i> Submit
                 </button>
@@ -230,13 +240,61 @@
         const N8N_SUBMIT_WEBHOOK = "https://advidere.app.n8n.cloud/webhook/fieldvoice-submit";
 
         // ============ STATE MANAGEMENT ============
+        let isReadonlyMode = false;
+
         function getReportKey() {
             const params = new URLSearchParams(window.location.search);
+
+            // Support 'date' param (YYYY-MM-DD format) for archives
+            const dateParam = params.get('date');
+            if (dateParam) {
+                const baseKey = `fieldvoice_report_${dateParam}`;
+
+                // First check for the base key (current day's report or draft)
+                if (localStorage.getItem(baseKey)) {
+                    return baseKey;
+                }
+
+                // Also check for archived submitted reports (key pattern: fieldvoice_report_YYYY-MM-DD_submitted_timestamp)
+                const submittedKeyPattern = new RegExp(`^fieldvoice_report_${dateParam}_submitted_\\d+$`);
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (submittedKeyPattern.test(key)) {
+                        return key;
+                    }
+                }
+
+                // Return base key even if not found (will show initial report)
+                return baseKey;
+            }
+
+            // Fall back to 'key' param or today's key
             return params.get('key') || getTodayKey();
         }
 
         function getTodayKey() {
             return `fieldvoice_report_${new Date().toISOString().split('T')[0]}`;
+        }
+
+        function checkReadonlyMode() {
+            const params = new URLSearchParams(window.location.search);
+            isReadonlyMode = params.get('readonly') === 'true';
+
+            if (isReadonlyMode) {
+                // Hide submit button
+                const submitBtn = document.getElementById('submit-report-btn');
+                if (submitBtn) submitBtn.classList.add('hidden');
+
+                // Hide standard navigation, show archives navigation
+                const navAiKit = document.getElementById('nav-ai-kit');
+                const navArchives = document.getElementById('nav-archives');
+                if (navAiKit) navAiKit.classList.add('hidden');
+                if (navArchives) navArchives.classList.remove('hidden');
+
+                // Show readonly badge
+                const readonlyBadge = document.getElementById('readonly-badge');
+                if (readonlyBadge) readonlyBadge.classList.remove('hidden');
+            }
         }
 
         function getReport() {
@@ -799,9 +857,13 @@
 
         // ============ INIT ============
         document.addEventListener('DOMContentLoaded', () => {
+            checkReadonlyMode();
             renderReport();
             checkSubmittedStatus();
-            markReportAsViewed();
+            // Only mark as viewed if not in readonly mode (viewing from archives)
+            if (!isReadonlyMode) {
+                markReportAsViewed();
+            }
         });
     </script>
 
