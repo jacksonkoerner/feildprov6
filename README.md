@@ -59,6 +59,7 @@
 ├── quick-interview.html    # Daily report flow (contractor-based DOT field entry)
 ├── review.html             # AI Kit - text refinement & editing via n8n webhook
 ├── report.html             # Print-ready PDF report viewer/generator
+├── archives.html           # Report archives with swipe-to-delete functionality
 ├── editor.html             # Photo editor & section-specific editing
 ├── permissions.html        # System setup, permission testing (mic, camera, GPS)
 ├── permission-debug.html   # Permission debugging and troubleshooting utility
@@ -91,15 +92,16 @@
 
 | Page | Lines | Purpose |
 |------|-------|---------|
-| `index.html` | ~880 | Dashboard with project selection, active project display, weather, and navigation |
+| `index.html` | ~887 | Dashboard with project selection, active project display, weather, and navigation |
 | `quick-interview.html` | ~2,487 | DOT-compliant report with 12 sections: Weather, Contractor Work, Personnel, Equipment, Issues, Inspections, Safety, Contractor Communications, Visitors/Deliveries, Photos |
 | `review.html` | ~1,296 | AI Kit - side-by-side original vs. AI-refined text comparison with manual editing, n8n webhook integration |
-| `report.html` | ~883 | Professional PDF-ready report with submit functionality, streamlined navigation |
+| `report.html` | ~945 | Professional PDF-ready report with submit functionality, streamlined navigation |
+| `archives.html` | ~431 | Report history with swipe-to-delete, date-sorted report list, view/delete past reports |
 | `editor.html` | ~674 | Photo capture with GPS embedding, section-specific editing interface |
 | `permissions.html` | ~1,596 | Permission testing (mic, camera, GPS), iOS-specific instructions for native dictation |
 | `permission-debug.html` | ~1,074 | Debugging utility for troubleshooting permission issues |
 | `project-config.html` | ~1,581 | Project management with document import, contractor roster, equipment inventory, and contract details |
-| `settings.html` | ~444 | Inspector profile - personal information, title, company, signature preview, and app refresh |
+| `settings.html` | ~477 | Inspector profile - personal information, title, company, signature preview, and app refresh |
 | `landing.html` | ~1,560 | Marketing page with feature overview and onboarding |
 
 ---
@@ -982,21 +984,22 @@ npx serve .
 
 | File | Lines | Size (approx) |
 |------|-------|---------------|
-| index.html | 880 | 42 KB |
-| quick-interview.html | 2,487 | 135 KB |
+| index.html | 887 | 43 KB |
+| quick-interview.html | 2,487 | 139 KB |
 | review.html | 1,296 | 64 KB |
-| report.html | 883 | 43 KB |
+| report.html | 945 | 46 KB |
+| archives.html | 431 | 19 KB |
 | editor.html | 674 | 32 KB |
 | permissions.html | 1,596 | 81 KB |
 | permission-debug.html | 1,074 | 53 KB |
 | project-config.html | 1,581 | 77 KB |
-| settings.html | 444 | 21 KB |
+| settings.html | 477 | 23 KB |
 | landing.html | 1,560 | 80 KB |
 | sw.js | 205 | 7 KB |
 | manifest.json | 65 | 2 KB |
 | icons/ | - | ~3 KB |
 | assets/ | - | ~325 KB |
-| **Total** | **~12,745** | **~965 KB** |
+| **Total** | **~13,278** | **~994 KB** |
 
 ---
 
@@ -1043,6 +1046,17 @@ Extend the `weatherCodes` object in `index.html` (lines 418-433) with additional
 ---
 
 ## Recent Changes
+
+### Report Archives Page (January 2026)
+- **New page: archives.html** - View and manage historical reports
+  - Date-sorted list of all saved reports
+  - Swipe-to-delete functionality with touch gesture support
+  - Delete confirmation modal to prevent accidental deletion
+  - View any past report directly from the archive
+  - "Report Archives" button added to home dashboard
+  - Empty state message when no reports exist
+  - Toast notifications for delete actions
+  - Home button navigation back to dashboard
 
 ### Document Import System (January 2026)
 - **New feature in project-config.html** - Automated project data extraction from existing reports
@@ -1190,4 +1204,4 @@ FieldVoice Pro is a sophisticated, production-ready field documentation system t
 - **Safe-area support** for modern iOS devices with notch/Dynamic Island
 - **Streamlined navigation** with project picker, Home buttons, and improved workflow tracking
 
-The codebase is mature (~12,745 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
+The codebase is mature (~13,278 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
