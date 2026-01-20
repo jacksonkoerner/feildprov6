@@ -151,27 +151,6 @@
                 </div>
             </a>
 
-            <!-- Data Management -->
-            <section class="bg-white border-2 border-slate-200">
-                <div class="bg-dot-orange text-white p-4">
-                    <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                        <i class="fas fa-database"></i>
-                        Data Management
-                    </h2>
-                </div>
-                <div class="p-4 space-y-3">
-                    <button onclick="exportAllData()" class="w-full p-4 bg-dot-blue text-white font-bold uppercase hover:bg-blue-800 transition-colors flex items-center justify-center gap-2">
-                        <i class="fas fa-download"></i>
-                        Export All Reports
-                    </button>
-                    <button onclick="confirmClearData()" class="w-full p-4 bg-red-600 text-white font-bold uppercase hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
-                        <i class="fas fa-trash-alt"></i>
-                        Clear All Data
-                    </button>
-                    <p class="text-xs text-slate-500 text-center">Warning: Clearing data cannot be undone</p>
-                </div>
-            </section>
-
             <!-- Troubleshooting -->
             <section class="bg-white border-2 border-slate-200">
                 <div class="bg-dot-slate text-white p-4">
@@ -282,43 +261,6 @@
                 return signature;
             } catch (e) {
                 return '';
-            }
-        }
-
-        function exportAllData() {
-            const allData = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('fieldvoice_') || key.startsWith('fvp_')) {
-                    try { allData[key] = JSON.parse(localStorage.getItem(key)); }
-                    catch (e) { allData[key] = localStorage.getItem(key); }
-                }
-            }
-            const dataStr = JSON.stringify(allData, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `RPR_Data_Export_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('Data exported successfully');
-        }
-
-        function confirmClearData() {
-            if (confirm('Are you sure you want to clear ALL data? This cannot be undone.')) {
-                if (confirm('This will delete all reports and settings. Are you absolutely sure?')) {
-                    for (let i = localStorage.length - 1; i >= 0; i--) {
-                        const key = localStorage.key(i);
-                        if (key.startsWith('fieldvoice_') || key.startsWith('fvp_')) {
-                            localStorage.removeItem(key);
-                        }
-                    }
-                    showToast('All data cleared', 'warning');
-                    setTimeout(() => window.location.href = 'index.html', 1500);
-                }
             }
         }
 
