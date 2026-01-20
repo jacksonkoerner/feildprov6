@@ -16,6 +16,8 @@ const STATIC_ASSETS = [
     './permission-debug.html',
     './settings.html',
     './landing.html',
+    './archives.html',
+    './project-config.html',
     './manifest.json',
     './icons/icon-192x192.png',
     './icons/icon-512x512.png'

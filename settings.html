@@ -328,7 +328,8 @@
 
                 console.log('[PWA Refresh] Reloading page...');
                 // Note: localStorage is preserved - user data is safe
-                window.location.reload();
+                // Use cache-busting redirect instead of reload() for iOS PWA compatibility
+                window.location.href = window.location.pathname + '?refresh=' + Date.now();
 
             } catch (error) {
                 console.error('[PWA Refresh] Error during refresh:', error);
