@@ -91,6 +91,17 @@
         }
         .caption-counter.warning { color: #f59e0b; }
         .caption-counter.limit { color: #ef4444; }
+        /* Auto-expanding textareas */
+        .auto-expand {
+            min-height: 72px; /* ~3 lines */
+            max-height: 400px;
+            overflow-y: hidden;
+            resize: none;
+            transition: height 0.1s ease-out;
+        }
+        .auto-expand.scrollable {
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
@@ -228,7 +239,7 @@
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase">Site Conditions</label>
                             <div class="mt-2">
-                                <textarea id="site-conditions-input" class="w-full bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="2" placeholder="Describe site conditions..."></textarea>
+                                <textarea id="site-conditions-input" class="w-full bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Describe site conditions..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -411,7 +422,7 @@
                         </button>
                         <div id="issues-list" class="space-y-2"></div>
                         <div class="flex items-center gap-2">
-                            <textarea id="issue-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="2" placeholder="Describe any issues or delays..."></textarea>
+                            <textarea id="issue-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Describe any issues or delays..."></textarea>
                             <button onclick="addIssue()" class="px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
                         </div>
                     </div>
@@ -439,7 +450,7 @@
                         </button>
                         <div id="inspections-list" class="space-y-2"></div>
                         <div class="flex items-center gap-2">
-                            <textarea id="inspection-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="2" placeholder="Describe inspections or testing..."></textarea>
+                            <textarea id="inspection-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Describe inspections or testing..."></textarea>
                             <button onclick="addInspection()" class="px-4 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
                         </div>
                     </div>
@@ -474,7 +485,7 @@
                         </div>
                         <div id="safety-list" class="space-y-2"></div>
                         <div class="flex items-center gap-2">
-                            <textarea id="safety-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="2" placeholder="Safety notes, toolbox talks..."></textarea>
+                            <textarea id="safety-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Safety notes, toolbox talks..."></textarea>
                             <button onclick="addSafetyNote()" class="px-4 py-3 bg-safety-green hover:bg-green-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
                         </div>
                     </div>
@@ -502,7 +513,7 @@
                         </button>
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase">Contractor Communications</label>
-                            <textarea id="contractor-communications-input" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="4" placeholder="Document any communications with contractors today (e.g., discussions about schedule, QC coordination, directives given)..."></textarea>
+                            <textarea id="contractor-communications-input" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Document any communications with contractors today (e.g., discussions about schedule, QC coordination, directives given)..."></textarea>
                             <p class="text-xs text-slate-400 mt-1">Tap the <i class="fas fa-microphone text-xs"></i> on your keyboard to dictate</p>
                         </div>
                     </div>
@@ -530,7 +541,7 @@
                         </button>
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase">Visitors, Deliveries & Remarks</label>
-                            <textarea id="visitors-remarks-input" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="4" placeholder="Document visitors, deliveries, change orders, and other remarks (e.g., DOT inspectors on site, material deliveries, change order work)..."></textarea>
+                            <textarea id="visitors-remarks-input" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Document visitors, deliveries, change orders, and other remarks (e.g., DOT inspectors on site, material deliveries, change order work)..."></textarea>
                             <p class="text-xs text-slate-400 mt-1">Tap the <i class="fas fa-microphone text-xs"></i> on your keyboard to dictate</p>
                         </div>
                     </div>
@@ -588,7 +599,7 @@
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase">Additional Notes & Comments</label>
                             <div class="mt-2">
-                                <textarea id="additional-notes-input" class="w-full bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none" rows="4" placeholder="Any other observations, comments, or information not covered above..."></textarea>
+                                <textarea id="additional-notes-input" class="w-full bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Any other observations, comments, or information not covered above..."></textarea>
                             </div>
                             <p class="text-xs text-slate-400 mt-1">Optional - for anything that doesn't fit other categories</p>
                         </div>
@@ -663,6 +674,74 @@
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const isIOSSafari = isIOS && isSafari;
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // ============ AUTO-EXPAND TEXTAREAS ============
+        /**
+         * Auto-expand a textarea to fit its content
+         * - Starts at reasonable height (3-4 lines via CSS min-height)
+         * - Grows to fit content up to max-height (400px)
+         * - Shows scrollbar only when content exceeds max-height
+         * - On blur, collapses to fit content (no empty space)
+         */
+        function autoExpand(textarea) {
+            if (!textarea) return;
+
+            const maxHeight = 400;
+            const minHeight = 72; // ~3 lines
+
+            // Reset height to recalculate
+            textarea.style.height = 'auto';
+
+            // Calculate new height
+            const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+            textarea.style.height = newHeight + 'px';
+
+            // Toggle scrollable class based on whether content exceeds max
+            if (textarea.scrollHeight > maxHeight) {
+                textarea.classList.add('scrollable');
+            } else {
+                textarea.classList.remove('scrollable');
+            }
+        }
+
+        /**
+         * Initialize auto-expand behavior on a textarea
+         */
+        function initAutoExpand(textarea) {
+            if (!textarea || textarea.dataset.autoExpandInit) return;
+
+            textarea.dataset.autoExpandInit = 'true';
+
+            // Add the auto-expand class if not already present
+            if (!textarea.classList.contains('auto-expand')) {
+                textarea.classList.add('auto-expand');
+            }
+
+            // Listen for input events (typing, dictation, paste)
+            textarea.addEventListener('input', () => autoExpand(textarea));
+
+            // Listen for change events (programmatic changes)
+            textarea.addEventListener('change', () => autoExpand(textarea));
+
+            // On focus, expand to fit content
+            textarea.addEventListener('focus', () => autoExpand(textarea));
+
+            // On blur, collapse to content size (remove empty space)
+            textarea.addEventListener('blur', () => {
+                // Small delay to ensure content is finalized
+                setTimeout(() => autoExpand(textarea), 10);
+            });
+
+            // Initial sizing
+            autoExpand(textarea);
+        }
+
+        /**
+         * Initialize all textareas with auto-expand class
+         */
+        function initAllAutoExpandTextareas() {
+            document.querySelectorAll('textarea.auto-expand').forEach(initAutoExpand);
+        }
 
         // ============ PROJECT & CONTRACTOR LOADING ============
         const PROJECTS_KEY = 'fvp_projects';
@@ -791,7 +870,7 @@
                                     <label class="text-xs font-bold text-slate-500 uppercase">Work Narrative</label>
                                     <textarea
                                         id="narrative-${contractor.id}"
-                                        class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue resize-none"
+                                        class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand"
                                         rows="3"
                                         placeholder="Describe work performed by ${contractor.name}..."
                                         onchange="updateContractorWork('${contractor.id}')"
@@ -830,6 +909,9 @@
                     </div>
                 `;
             }).join('');
+
+            // Initialize auto-expand for dynamically created textareas
+            initAllAutoExpandTextareas();
         }
 
         function toggleContractorCard(contractorId) {
@@ -2465,6 +2547,9 @@
 
             document.getElementById('no-incidents').checked = report.safety.noIncidents || false;
             document.getElementById('has-incidents').checked = report.safety.hasIncidents || false;
+
+            // Initialize auto-expand for all textareas
+            initAllAutoExpandTextareas();
         });
     </script>
 

@@ -88,6 +88,17 @@
         }
         .caption-counter.warning { color: #f59e0b; }
         .caption-counter.limit { color: #ef4444; }
+        /* Auto-expanding textareas */
+        .auto-expand {
+            min-height: 72px; /* ~3 lines */
+            max-height: 400px;
+            overflow-y: hidden;
+            resize: none;
+            transition: height 0.1s ease-out;
+        }
+        .auto-expand.scrollable {
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
@@ -368,6 +379,56 @@
         let refinedData = {};
         let naSections = {};
         let isRefining = {}; // Track which sections are currently being refined
+
+        // ============ AUTO-EXPAND TEXTAREAS ============
+        /**
+         * Auto-expand a textarea to fit its content
+         */
+        function autoExpand(textarea) {
+            if (!textarea) return;
+
+            const maxHeight = 400;
+            const minHeight = 72; // ~3 lines
+
+            textarea.style.height = 'auto';
+            const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+            textarea.style.height = newHeight + 'px';
+
+            if (textarea.scrollHeight > maxHeight) {
+                textarea.classList.add('scrollable');
+            } else {
+                textarea.classList.remove('scrollable');
+            }
+        }
+
+        /**
+         * Initialize auto-expand behavior on a textarea
+         */
+        function initAutoExpand(textarea) {
+            if (!textarea || textarea.dataset.autoExpandInit) return;
+
+            textarea.dataset.autoExpandInit = 'true';
+
+            if (!textarea.classList.contains('auto-expand')) {
+                textarea.classList.add('auto-expand');
+            }
+
+            textarea.addEventListener('input', () => autoExpand(textarea));
+            textarea.addEventListener('change', () => autoExpand(textarea));
+            textarea.addEventListener('focus', () => autoExpand(textarea));
+            textarea.addEventListener('blur', () => {
+                setTimeout(() => autoExpand(textarea), 10);
+            });
+
+            autoExpand(textarea);
+        }
+
+        /**
+         * Initialize all textareas with auto-expand class
+         */
+        function initAllAutoExpandTextareas() {
+            document.querySelectorAll('textarea.auto-expand').forEach(initAutoExpand);
+        }
 
         // ============ STORAGE ============
         function getTodayKey() {
