@@ -92,7 +92,7 @@
 | Page | Lines | Purpose |
 |------|-------|---------|
 | `index.html` | ~931 | Dashboard with project selection, active project display, weather, and navigation |
-| `quick-interview.html` | ~3,243 | DOT-compliant report with dual capture modes (Quick Notes minimal or Guided Sections), 12 expandable sections, auto-expanding textareas, contractor-based work entry |
+| `quick-interview.html` | ~3,175 | DOT-compliant report with dual capture modes (Quick Notes minimal or Guided Sections), 12 expandable sections, auto-expanding textareas, contractor-based work entry |
 | `report.html` | ~1,881 | AI-populated editable DOT form with Form View and Original Notes tabs, submit functionality |
 | `archives.html` | ~491 | Report history with swipe-to-delete, date-sorted report list, view/delete past reports |
 | `editor.html` | ~741 | Photo capture with GPS embedding, full-size photo cards with orientation handling, editable captions |
@@ -999,7 +999,7 @@ npx serve .
 | File | Lines | Size (approx) |
 |------|-------|---------------|
 | index.html | 931 | 45 KB |
-| quick-interview.html | 3,243 | 158 KB |
+| quick-interview.html | 3,175 | 155 KB |
 | report.html | 1,881 | 85 KB |
 | archives.html | 491 | 22 KB |
 | editor.html | 741 | 34 KB |
@@ -1012,7 +1012,7 @@ npx serve .
 | manifest.json | 65 | 2 KB |
 | icons/ | - | ~3 KB |
 | assets/ | - | ~328 KB |
-| **Total** | **~13,849** | **~1 MB** |
+| **Total** | **~13,781** | **~1 MB** |
 
 ---
 
@@ -1059,6 +1059,13 @@ Extend the `weatherCodes` object in `index.html` (lines 418-433) with additional
 ---
 
 ## Recent Changes
+
+### Code Cleanup (January 2026)
+- **Removed unused commented-out code from quick-interview.html**
+  - Removed placeholder comments for deprecated sections (Personnel/Operations, Equipment, QA/QC Inspections, Communications, Visitors/Deliveries)
+  - Removed commented-out Additional Notes section HTML
+  - These sections were previously moved to the editable report page
+  - Cleanup reduces file size and improves code maintainability
 
 ### Dual Capture Modes (January 2026)
 - **New feature in quick-interview.html** - Choose between two capture workflows:
@@ -1249,4 +1256,4 @@ FieldVoice Pro is a sophisticated, production-ready field documentation system t
 - **Safe-area support** for modern iOS devices with notch/Dynamic Island
 - **Streamlined navigation** with project picker, Home buttons, and improved workflow tracking
 
-The codebase is mature (~13,849 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
+The codebase is mature (~13,781 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
