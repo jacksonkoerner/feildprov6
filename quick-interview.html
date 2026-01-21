@@ -102,12 +102,212 @@
         .auto-expand.scrollable {
             overflow-y: auto;
         }
+        /* Mode selection cards */
+        .mode-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .mode-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .mode-card:active {
+            transform: translateY(0);
+        }
+        /* Minimal mode field notes textarea */
+        .field-notes-textarea {
+            min-height: 200px;
+            max-height: 60vh;
+            overflow-y: auto;
+            resize: none;
+            transition: height 0.1s ease-out;
+            font-size: 16px;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
     <div class="header-stripe"></div>
 
-    <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col">
+    <!-- MODE SELECTION SCREEN -->
+    <div id="modeSelectionScreen" class="hidden max-w-lg mx-auto min-h-screen flex flex-col">
+        <header class="sticky top-0 z-20 bg-dot-navy text-white">
+            <div class="p-4 flex items-center justify-between">
+                <a href="index.html" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors">
+                    <i class="fas fa-arrow-left text-slate-400"></i>
+                </a>
+                <div class="text-center flex-1 mx-4">
+                    <p id="modeSelectionProjectName" class="text-sm font-bold text-white truncate">Daily Report</p>
+                    <p id="modeSelectionDate" class="text-xs text-slate-400"></p>
+                </div>
+                <div class="w-10"></div>
+            </div>
+        </header>
+
+        <main class="flex-1 p-6 flex flex-col justify-center">
+            <div class="text-center mb-8">
+                <h2 class="text-xl font-bold text-slate-800 mb-2">How do you want to capture today?</h2>
+                <p class="text-sm text-slate-500">Choose your preferred documentation style</p>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Quick Notes Mode -->
+                <button onclick="selectCaptureMode('minimal')" class="mode-card w-full bg-white border-2 border-slate-200 p-6 text-left hover:border-dot-blue">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 bg-dot-blue flex items-center justify-center shrink-0">
+                            <i class="fas fa-bolt text-white text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-800 uppercase text-sm mb-1">Quick Notes</p>
+                            <p class="text-slate-600 text-sm mb-2">One text box + photos</p>
+                            <p class="text-xs text-slate-400">Dictate everything freely. AI organizes it later.</p>
+                        </div>
+                        <i class="fas fa-chevron-right text-slate-300 mt-4"></i>
+                    </div>
+                </button>
+
+                <!-- Guided Sections Mode -->
+                <button onclick="selectCaptureMode('guided')" class="mode-card w-full bg-white border-2 border-slate-200 p-6 text-left hover:border-safety-green">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 bg-safety-green flex items-center justify-center shrink-0">
+                            <i class="fas fa-list-check text-white text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-800 uppercase text-sm mb-1">Guided Sections</p>
+                            <p class="text-slate-600 text-sm mb-2">Work • Issues • Safety • Equipment</p>
+                            <p class="text-xs text-slate-400">More structure upfront. Fill in each category.</p>
+                        </div>
+                        <i class="fas fa-chevron-right text-slate-300 mt-4"></i>
+                    </div>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- MINIMAL MODE UI -->
+    <div id="minimalModeApp" class="hidden max-w-lg mx-auto min-h-screen flex flex-col">
+        <!-- Minimal Mode Header -->
+        <header class="sticky top-0 z-20 bg-dot-navy text-white">
+            <div class="p-4 flex items-center justify-between">
+                <a href="index.html" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors">
+                    <i class="fas fa-arrow-left text-slate-400"></i>
+                </a>
+                <div class="text-center flex-1 mx-4">
+                    <p class="text-[10px] font-bold text-dot-blue uppercase tracking-widest">Quick Notes</p>
+                    <p id="minimalCurrentDate" class="text-sm text-slate-400"></p>
+                </div>
+                <button onclick="showSwitchModeConfirm()" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors" title="Switch Mode">
+                    <i class="fas fa-exchange-alt text-slate-400"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Minimal Mode Content -->
+        <main class="flex-1 p-4 pb-32 space-y-4 overflow-y-auto hide-scrollbar">
+            <!-- Weather Card (Minimal) -->
+            <div class="bg-white border-2 border-slate-200 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-dot-blue flex items-center justify-center">
+                            <i id="minimalWeatherIcon" class="fas fa-cloud-sun text-white"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-500 uppercase">Weather</p>
+                            <p id="minimalWeatherCondition" class="text-sm font-bold text-slate-800">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p id="minimalWeatherTemp" class="text-lg font-bold text-slate-800">--</p>
+                        <p id="minimalWeatherPrecip" class="text-xs text-slate-500">Precip: --</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Field Notes Section -->
+            <div class="bg-white border-2 border-slate-200 p-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-dot-navy flex items-center justify-center">
+                        <i class="fas fa-microphone text-dot-yellow"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 uppercase text-sm">Field Notes</p>
+                        <p class="text-xs text-slate-500">Dictate or type everything here</p>
+                    </div>
+                </div>
+                <textarea
+                    id="freeform-notes-input"
+                    class="w-full bg-slate-50 border-2 border-slate-200 px-4 py-4 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue focus:bg-white field-notes-textarea"
+                    placeholder="Dictate everything here - contractors, work performed, issues, observations. AI will organize it later.
+
+Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was good, no delays. Noticed some rebar spacing issues in section 3 that need attention. Safety meeting held at 7am.'"
+                    oninput="updateFieldNotes(this.value); autoExpandFieldNotes(this);"
+                ></textarea>
+                <div class="flex items-center justify-between mt-2">
+                    <p class="text-xs text-slate-400">
+                        <i class="fas fa-microphone mr-1"></i>Use keyboard mic to dictate
+                    </p>
+                    <p id="fieldNotesCharCount" class="text-xs text-slate-400"></p>
+                </div>
+            </div>
+
+            <!-- Photos Section (Minimal) -->
+            <div class="bg-white border-2 border-slate-200 p-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-dot-navy flex items-center justify-center">
+                        <i class="fas fa-camera text-dot-yellow"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 uppercase text-sm">Progress Photos</p>
+                        <p id="minimalPhotosCount" class="text-xs text-slate-500">No photos yet</p>
+                    </div>
+                </div>
+                <label class="block cursor-pointer mb-3">
+                    <input type="file" accept="image/*" capture="environment" multiple class="hidden" id="minimalPhotoInput">
+                    <div class="border-2 border-dashed border-slate-300 p-4 text-center hover:border-dot-blue hover:bg-slate-50 transition-colors">
+                        <i class="fas fa-camera text-xl text-slate-400 mb-1"></i>
+                        <p class="font-bold text-slate-600 uppercase text-xs">Tap to Add Photos</p>
+                    </div>
+                </label>
+                <div id="minimalPhotosGrid" class="grid grid-cols-3 gap-2"></div>
+            </div>
+        </main>
+
+        <!-- Finish Button (Fixed at bottom) -->
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-100 via-slate-100 to-transparent">
+            <div class="max-w-lg mx-auto">
+                <button onclick="finishMinimalReport()" class="w-full p-4 bg-safety-green hover:bg-green-700 text-white font-bold uppercase transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-check"></i>
+                    Finish & Process
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Switch Mode Confirmation Modal -->
+    <div id="switchModeModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm">
+            <div class="bg-dot-navy text-white p-4 text-center">
+                <i class="fas fa-exchange-alt text-2xl mb-2"></i>
+                <p class="font-bold uppercase">Switch Mode?</p>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-slate-600 mb-4">
+                    Switching modes will preserve your photos and weather data.
+                    <span id="switchModeWarning" class="hidden text-red-600 font-medium">Your field notes will be moved to Additional Notes.</span>
+                </p>
+                <div class="space-y-2">
+                    <button onclick="confirmSwitchMode()" class="w-full p-3 bg-dot-blue hover:bg-dot-navy text-white font-bold uppercase transition-colors">
+                        Switch to <span id="switchModeTarget">Guided Sections</span>
+                    </button>
+                    <button onclick="closeSwitchModeModal()" class="w-full p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" class="hidden max-w-lg mx-auto min-h-screen flex flex-col">
 
         <!-- Permissions Warning Banner -->
         <div id="permissionsWarningBanner" class="hidden bg-dot-orange">
@@ -139,10 +339,13 @@
                 <a href="index.html" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors">
                     <i class="fas fa-arrow-left text-slate-400"></i>
                 </a>
-                <div class="text-center flex-1 mx-4">
-                    <p class="text-[10px] font-bold text-safety-green uppercase tracking-widest">Daily Report</p>
+                <div class="text-center flex-1 mx-2">
+                    <p class="text-[10px] font-bold text-safety-green uppercase tracking-widest">Guided Sections</p>
                     <p id="currentDate" class="text-sm text-slate-400"></p>
                 </div>
+                <button onclick="showSwitchModeConfirm()" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors mr-2" title="Switch Mode">
+                    <i class="fas fa-exchange-alt text-slate-400"></i>
+                </button>
                 <button onclick="finishReport()" class="px-4 py-2 bg-safety-green hover:bg-green-700 text-white text-sm font-bold uppercase transition-colors">
                     Finish
                 </button>
@@ -741,6 +944,370 @@
          */
         function initAllAutoExpandTextareas() {
             document.querySelectorAll('textarea.auto-expand').forEach(initAutoExpand);
+        }
+
+        // ============ CAPTURE MODE HANDLING ============
+        /**
+         * Check if we should show mode selection screen
+         * Show if: no captureMode set AND report is essentially empty
+         */
+        function shouldShowModeSelection() {
+            if (!report) return true;
+            if (report.meta?.captureMode) return false;
+
+            // Check if report has any meaningful data (besides default values)
+            const hasPhotos = report.photos?.length > 0;
+            const hasActivities = report.activities?.length > 0;
+            const hasIssues = report.generalIssues?.length > 0;
+            const hasNotes = report.additionalNotes?.trim().length > 0;
+            const hasFieldNotes = report.fieldNotes?.freeformNotes?.trim().length > 0;
+            const hasReporterName = report.reporter?.name?.trim().length > 0;
+
+            // If any data exists, don't show mode selection
+            return !(hasPhotos || hasActivities || hasIssues || hasNotes || hasFieldNotes || hasReporterName);
+        }
+
+        /**
+         * Select a capture mode and show the appropriate UI
+         */
+        function selectCaptureMode(mode) {
+            report.meta.captureMode = mode;
+            saveReport();
+            showModeUI(mode);
+        }
+
+        /**
+         * Show the appropriate UI for the selected mode
+         */
+        function showModeUI(mode) {
+            const modeSelectionScreen = document.getElementById('modeSelectionScreen');
+            const minimalModeApp = document.getElementById('minimalModeApp');
+            const guidedModeApp = document.getElementById('app');
+
+            modeSelectionScreen.classList.add('hidden');
+
+            if (mode === 'minimal') {
+                minimalModeApp.classList.remove('hidden');
+                guidedModeApp.classList.add('hidden');
+                initMinimalModeUI();
+            } else {
+                minimalModeApp.classList.add('hidden');
+                guidedModeApp.classList.remove('hidden');
+                initGuidedModeUI();
+            }
+        }
+
+        /**
+         * Show the mode selection screen
+         */
+        function showModeSelectionScreen() {
+            const modeSelectionScreen = document.getElementById('modeSelectionScreen');
+            const minimalModeApp = document.getElementById('minimalModeApp');
+            const guidedModeApp = document.getElementById('app');
+
+            modeSelectionScreen.classList.remove('hidden');
+            minimalModeApp.classList.add('hidden');
+            guidedModeApp.classList.add('hidden');
+
+            // Update mode selection header
+            const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            document.getElementById('modeSelectionDate').textContent = dateStr;
+
+            if (activeProject) {
+                document.getElementById('modeSelectionProjectName').textContent = activeProject.name;
+            }
+        }
+
+        /**
+         * Show confirmation modal for switching modes
+         */
+        function showSwitchModeConfirm() {
+            const modal = document.getElementById('switchModeModal');
+            const warning = document.getElementById('switchModeWarning');
+            const targetSpan = document.getElementById('switchModeTarget');
+            const currentMode = report.meta?.captureMode;
+
+            // Set target mode text
+            if (currentMode === 'minimal') {
+                targetSpan.textContent = 'Guided Sections';
+                // Show warning if there are field notes
+                if (report.fieldNotes?.freeformNotes?.trim()) {
+                    warning.classList.remove('hidden');
+                } else {
+                    warning.classList.add('hidden');
+                }
+            } else {
+                targetSpan.textContent = 'Quick Notes';
+                warning.classList.add('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        /**
+         * Close the switch mode confirmation modal
+         */
+        function closeSwitchModeModal() {
+            document.getElementById('switchModeModal').classList.add('hidden');
+        }
+
+        /**
+         * Confirm switching modes
+         */
+        function confirmSwitchMode() {
+            const currentMode = report.meta?.captureMode;
+            const newMode = currentMode === 'minimal' ? 'guided' : 'minimal';
+
+            // Preserve data when switching
+            if (currentMode === 'minimal' && newMode === 'guided') {
+                // Move field notes to additionalNotes if not empty
+                if (report.fieldNotes?.freeformNotes?.trim()) {
+                    const existingNotes = report.additionalNotes?.trim() || '';
+                    const fieldNotes = report.fieldNotes.freeformNotes.trim();
+                    report.additionalNotes = existingNotes
+                        ? `${existingNotes}\n\n--- Field Notes ---\n${fieldNotes}`
+                        : fieldNotes;
+                }
+            }
+
+            // Photos and weather are always preserved (shared between modes)
+
+            report.meta.captureMode = newMode;
+            saveReport();
+            closeSwitchModeModal();
+            showModeUI(newMode);
+        }
+
+        // ============ MINIMAL MODE UI ============
+        /**
+         * Initialize the minimal mode UI
+         */
+        function initMinimalModeUI() {
+            // Set date
+            const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            document.getElementById('minimalCurrentDate').textContent = dateStr;
+
+            // Load field notes
+            const notesInput = document.getElementById('freeform-notes-input');
+            if (notesInput) {
+                notesInput.value = report.fieldNotes?.freeformNotes || '';
+                autoExpandFieldNotes(notesInput);
+                updateFieldNotesCharCount();
+            }
+
+            // Update weather display
+            updateMinimalWeatherDisplay();
+
+            // Render photos
+            renderMinimalPhotos();
+
+            // Setup photo input handler
+            const photoInput = document.getElementById('minimalPhotoInput');
+            if (photoInput) {
+                photoInput.addEventListener('change', handleMinimalPhotoInput);
+            }
+        }
+
+        /**
+         * Initialize the guided mode UI (existing functionality)
+         */
+        function initGuidedModeUI() {
+            // Set date
+            const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            document.getElementById('currentDate').textContent = dateStr;
+
+            renderAllSections();
+            updateAllPreviews();
+            updateProgress();
+            updateNAButtons();
+
+            // Populate fields
+            document.getElementById('reporter-name-input').value = report.reporter?.name || '';
+            document.getElementById('project-name-input').value = report.project?.name || '';
+            document.getElementById('project-day-input').value = report.project?.dayNumber || '';
+            document.getElementById('additional-notes-input').value = report.additionalNotes || '';
+            document.getElementById('contractor-communications-input').value = report.contractorCommunications || '';
+            document.getElementById('visitors-remarks-input').value = report.visitorsRemarks || '';
+
+            document.getElementById('no-incidents').checked = report.safety?.noIncidents || false;
+            document.getElementById('has-incidents').checked = report.safety?.hasIncidents || false;
+
+            // Initialize auto-expand for all textareas
+            initAllAutoExpandTextareas();
+        }
+
+        /**
+         * Auto-expand the field notes textarea
+         */
+        function autoExpandFieldNotes(textarea) {
+            if (!textarea) return;
+            const minHeight = 200;
+            const maxHeight = window.innerHeight * 0.6;
+
+            textarea.style.height = 'auto';
+            const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+            textarea.style.height = newHeight + 'px';
+        }
+
+        /**
+         * Update field notes in the report
+         */
+        function updateFieldNotes(value) {
+            if (!report.fieldNotes) report.fieldNotes = { freeformNotes: "" };
+            report.fieldNotes.freeformNotes = value;
+            saveReport();
+            updateFieldNotesCharCount();
+        }
+
+        /**
+         * Update the character count display for field notes
+         */
+        function updateFieldNotesCharCount() {
+            const charCount = document.getElementById('fieldNotesCharCount');
+            const notes = report.fieldNotes?.freeformNotes || '';
+            const len = notes.length;
+            if (len > 0) {
+                charCount.textContent = `${len.toLocaleString()} characters`;
+            } else {
+                charCount.textContent = '';
+            }
+        }
+
+        /**
+         * Update the weather display in minimal mode
+         */
+        function updateMinimalWeatherDisplay() {
+            const weather = report.overview?.weather;
+            if (!weather) return;
+
+            const conditionEl = document.getElementById('minimalWeatherCondition');
+            const tempEl = document.getElementById('minimalWeatherTemp');
+            const precipEl = document.getElementById('minimalWeatherPrecip');
+            const iconEl = document.getElementById('minimalWeatherIcon');
+
+            if (conditionEl) conditionEl.textContent = weather.generalCondition || '--';
+            if (tempEl) {
+                const high = weather.highTemp || '--';
+                const low = weather.lowTemp || '--';
+                tempEl.textContent = `${high}° / ${low}°`;
+            }
+            if (precipEl) precipEl.textContent = `Precip: ${weather.precipitation || '--'}`;
+
+            // Update icon based on condition
+            if (iconEl) {
+                const condition = (weather.generalCondition || '').toLowerCase();
+                let iconClass = 'fa-cloud-sun';
+                if (condition.includes('rain') || condition.includes('shower')) iconClass = 'fa-cloud-rain';
+                else if (condition.includes('cloud')) iconClass = 'fa-cloud';
+                else if (condition.includes('sun') || condition.includes('clear')) iconClass = 'fa-sun';
+                else if (condition.includes('snow')) iconClass = 'fa-snowflake';
+                else if (condition.includes('storm') || condition.includes('thunder')) iconClass = 'fa-bolt';
+                iconEl.className = `fas ${iconClass} text-white`;
+            }
+        }
+
+        /**
+         * Render photos in minimal mode
+         */
+        function renderMinimalPhotos() {
+            const grid = document.getElementById('minimalPhotosGrid');
+            const countEl = document.getElementById('minimalPhotosCount');
+
+            if (!grid) return;
+
+            const photos = report.photos || [];
+            countEl.textContent = photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''}` : 'No photos yet';
+
+            if (photos.length === 0) {
+                grid.innerHTML = '';
+                return;
+            }
+
+            grid.innerHTML = photos.map((p, idx) => `
+                <div class="relative aspect-square bg-slate-200 overflow-hidden">
+                    <img src="${p.url}" class="w-full h-full object-cover">
+                    <button onclick="deleteMinimalPhoto(${idx})" class="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white flex items-center justify-center hover:bg-red-700">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        /**
+         * Handle photo input in minimal mode
+         */
+        async function handleMinimalPhotoInput(e) {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            for (const file of files) {
+                try {
+                    // Get GPS if available
+                    let gps = null;
+                    try {
+                        const pos = await new Promise((res, rej) =>
+                            navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+                        );
+                        gps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    } catch (e) {}
+
+                    // Compress and store image
+                    const compressed = await compressImage(await readFileAsDataURL(file));
+
+                    report.photos.push({
+                        id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        url: compressed,
+                        caption: '',
+                        timestamp: new Date().toISOString(),
+                        date: new Date().toLocaleDateString(),
+                        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                        gps: gps
+                    });
+
+                    saveReport();
+                    renderMinimalPhotos();
+                } catch (err) {
+                    console.error('Error adding photo:', err);
+                    showToast('Failed to add photo', 'error');
+                }
+            }
+
+            // Reset input
+            e.target.value = '';
+        }
+
+        /**
+         * Read file as data URL
+         */
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        /**
+         * Delete a photo in minimal mode
+         */
+        function deleteMinimalPhoto(idx) {
+            if (!confirm('Delete this photo?')) return;
+            report.photos.splice(idx, 1);
+            saveReport();
+            renderMinimalPhotos();
+        }
+
+        /**
+         * Finish the minimal mode report and go to review
+         */
+        function finishMinimalReport() {
+            // Mark as interview completed
+            report.meta.interviewCompleted = true;
+            saveReport();
+
+            // Navigate to review page
+            window.location.href = 'review.html';
         }
 
         // ============ PROJECT & CONTRACTOR LOADING ============
@@ -1736,12 +2303,30 @@
                 parsed.visitorsRemarks = parsed.visitorsRemarks.join('\n');
             }
             if (parsed.visitorsRemarks === undefined) parsed.visitorsRemarks = "";
+            // Migrate captureMode field (default to 'guided' for existing reports with data)
+            if (parsed.meta.captureMode === undefined) {
+                // If report has any guided section data, assume it's guided mode
+                const hasGuidedData = parsed.activities?.length > 0 ||
+                    parsed.generalIssues?.length > 0 ||
+                    parsed.qaqcNotes?.length > 0 ||
+                    parsed.safety?.notes?.length > 0;
+                parsed.meta.captureMode = hasGuidedData ? 'guided' : null;
+            }
+            // Migrate fieldNotes structure
+            if (!parsed.fieldNotes) parsed.fieldNotes = { freeformNotes: "" };
+            if (parsed.fieldNotes.freeformNotes === undefined) parsed.fieldNotes.freeformNotes = "";
             return parsed;
         }
 
         function createFreshReport() {
             return {
-                meta: { createdAt: new Date().toISOString(), interviewCompleted: false, version: 2, naMarked: {} },
+                meta: {
+                    createdAt: new Date().toISOString(),
+                    interviewCompleted: false,
+                    version: 2,
+                    naMarked: {},
+                    captureMode: null // 'minimal' or 'guided' - null means mode not yet selected
+                },
                 reporter: {
                     name: ""
                 },
@@ -1760,7 +2345,11 @@
                 contractorCommunications: "",
                 visitorsRemarks: "",
                 photos: [],
-                additionalNotes: ""
+                additionalNotes: "",
+                // Minimal mode fields
+                fieldNotes: {
+                    freeformNotes: ""
+                }
             };
         }
 
@@ -1873,6 +2462,7 @@
                 };
                 saveReport();
                 updateWeatherDisplay();
+                updateMinimalWeatherDisplay(); // Also update minimal mode weather
             } catch (error) {
                 console.error('Weather fetch failed:', error);
             }
@@ -1880,10 +2470,15 @@
 
         function updateWeatherDisplay() {
             const w = report.overview.weather;
-            document.getElementById('weather-condition').textContent = w.generalCondition;
-            document.getElementById('weather-temp').textContent = `${w.highTemp} / ${w.lowTemp}`;
-            document.getElementById('weather-precip').textContent = w.precipitation;
-            document.getElementById('site-conditions-input').value = w.jobSiteCondition || '';
+            const conditionEl = document.getElementById('weather-condition');
+            const tempEl = document.getElementById('weather-temp');
+            const precipEl = document.getElementById('weather-precip');
+            const siteCondEl = document.getElementById('site-conditions-input');
+
+            if (conditionEl) conditionEl.textContent = w.generalCondition;
+            if (tempEl) tempEl.textContent = `${w.highTemp} / ${w.lowTemp}`;
+            if (precipEl) precipEl.textContent = w.precipitation;
+            if (siteCondEl) siteCondEl.value = w.jobSiteCondition || '';
         }
 
         // ============ SECTION TOGGLE ============
@@ -2563,8 +3158,6 @@
 
         // ============ INIT ============
         document.addEventListener('DOMContentLoaded', async () => {
-            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
             // Load active project and contractors first
             loadActiveProject();
 
@@ -2584,29 +3177,30 @@
                 saveReport();
             }
 
+            // Check if we need to show mode selection or jump to a specific mode
+            if (shouldShowModeSelection()) {
+                showModeSelectionScreen();
+                // Fetch weather in background for when user selects a mode
+                if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
+                    fetchWeather();
+                }
+            } else {
+                // Show the appropriate mode UI
+                const mode = report.meta?.captureMode || 'guided';
+                showModeUI(mode);
+
+                // Fetch weather if needed
+                if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
+                    await fetchWeather();
+                    // Update weather display in minimal mode if active
+                    if (mode === 'minimal') {
+                        updateMinimalWeatherDisplay();
+                    }
+                }
+            }
+
             checkAndShowWarningBanner();
             checkDictationHintBanner();
-            if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
-                await fetchWeather();
-            }
-            renderAllSections();
-            updateAllPreviews();
-            updateProgress();
-            updateNAButtons();
-
-            // Populate new fields
-            document.getElementById('reporter-name-input').value = report.reporter?.name || '';
-            document.getElementById('project-name-input').value = report.project?.name || '';
-            document.getElementById('project-day-input').value = report.project?.dayNumber || '';
-            document.getElementById('additional-notes-input').value = report.additionalNotes || '';
-            document.getElementById('contractor-communications-input').value = report.contractorCommunications || '';
-            document.getElementById('visitors-remarks-input').value = report.visitorsRemarks || '';
-
-            document.getElementById('no-incidents').checked = report.safety.noIncidents || false;
-            document.getElementById('has-incidents').checked = report.safety.hasIncidents || false;
-
-            // Initialize auto-expand for all textareas
-            initAllAutoExpandTextareas();
         });
     </script>
 
