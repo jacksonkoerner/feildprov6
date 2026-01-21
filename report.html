@@ -1062,9 +1062,10 @@
         // ============ DATA MERGING ============
         /**
          * Get value with priority: userEdits > aiGenerated > fieldNotes > defaults
+         * Handles AI-generated arrays by joining them with newlines for text fields
          */
         function getValue(path, defaultValue = '') {
-            // Check user edits first
+            // Check user edits first - user edits always win
             if (userEdits[path] !== undefined) {
                 return userEdits[path];
             }
@@ -1073,13 +1074,21 @@
             if (report.aiGenerated) {
                 const aiValue = getNestedValue(report.aiGenerated, path);
                 if (aiValue !== undefined && aiValue !== null && aiValue !== '') {
+                    // Handle arrays by joining with newlines (for text fields)
+                    if (Array.isArray(aiValue)) {
+                        return aiValue.join('\n');
+                    }
                     return aiValue;
                 }
             }
 
-            // Check existing report data
+            // Check existing report data (fieldNotes, guidedNotes, etc.)
             const reportValue = getNestedValue(report, path);
             if (reportValue !== undefined && reportValue !== null && reportValue !== '') {
+                // Also handle arrays from regular report data
+                if (Array.isArray(reportValue)) {
+                    return reportValue.join('\n');
+                }
                 return reportValue;
             }
 
@@ -1088,6 +1097,55 @@
 
         function getNestedValue(obj, path) {
             return path.split('.').reduce((o, k) => (o || {})[k], obj);
+        }
+
+        /**
+         * Get value from AI-generated data with array handling
+         * Arrays are joined with newlines, other values returned as-is
+         */
+        function getAIValue(path, defaultValue = '') {
+            if (!report.aiGenerated) return defaultValue;
+            const value = getNestedValue(report.aiGenerated, path);
+            if (value === undefined || value === null) return defaultValue;
+            if (Array.isArray(value)) return value.join('\n');
+            return value;
+        }
+
+        /**
+         * Get text field value with proper priority handling
+         * Priority: userEdits > aiGenerated > fieldNotes/guidedNotes > defaults
+         * @param {string} reportPath - Path in report object (e.g., 'issues')
+         * @param {string} aiPath - Path in aiGenerated object (e.g., 'generalIssues')
+         * @param {string} defaultValue - Fallback value if nothing found
+         */
+        function getTextFieldValue(reportPath, aiPath, defaultValue = '') {
+            // 1. Check user edits first - user edits always win
+            if (userEdits[reportPath] !== undefined) {
+                return userEdits[reportPath];
+            }
+
+            // 2. Check AI-generated data
+            if (report.aiGenerated) {
+                const aiValue = getNestedValue(report.aiGenerated, aiPath);
+                if (aiValue !== undefined && aiValue !== null && aiValue !== '') {
+                    if (Array.isArray(aiValue)) {
+                        return aiValue.join('\n');
+                    }
+                    return aiValue;
+                }
+            }
+
+            // 3. Check existing report data
+            const reportValue = getNestedValue(report, reportPath);
+            if (reportValue !== undefined && reportValue !== null && reportValue !== '') {
+                if (Array.isArray(reportValue)) {
+                    return reportValue.join('\n');
+                }
+                return reportValue;
+            }
+
+            // 4. Return default (which may come from guidedNotes/fieldNotes)
+            return defaultValue;
         }
 
         function setNestedValue(obj, path, value) {
@@ -1128,12 +1186,16 @@
             document.getElementById('weatherJobSite').value = getValue('overview.weather.jobSiteCondition', '');
             document.getElementById('weatherAdverse').value = getValue('overview.weather.adverseConditions', '');
 
-            // Text sections
-            document.getElementById('issuesText').value = getValue('issues', '');
-            document.getElementById('qaqcText').value = getValue('qaqc', '');
-            document.getElementById('safetyText').value = getValue('safety.notes', '');
-            document.getElementById('communicationsText').value = getValue('communications', '');
-            document.getElementById('visitorsText').value = getValue('visitors', '');
+            // Text sections - check AI-generated paths with correct field names
+            // Priority: userEdits > aiGenerated > guidedNotes/fieldNotes > report defaults
+            document.getElementById('issuesText').value = getTextFieldValue('issues', 'generalIssues',
+                report.guidedNotes?.issues || '');
+            document.getElementById('qaqcText').value = getTextFieldValue('qaqc', 'qaqcNotes', '');
+            document.getElementById('safetyText').value = getTextFieldValue('safety.notes', 'safety.notes',
+                report.guidedNotes?.safety || '');
+            document.getElementById('communicationsText').value = getTextFieldValue('communications',
+                'contractorCommunications', '');
+            document.getElementById('visitorsText').value = getTextFieldValue('visitors', 'visitorsRemarks', '');
 
             // Safety incident toggle
             const hasIncident = getValue('safety.hasIncident', false);
@@ -1273,7 +1335,31 @@
             setupContractorListeners();
         }
 
+        /**
+         * Get contractor activity with priority: userEdits > aiGenerated > report.activities
+         */
         function getContractorActivity(contractorId) {
+            // Check if user has edited this contractor's activity
+            const userEditKey = `activity_${contractorId}`;
+            if (userEdits[userEditKey]) {
+                return userEdits[userEditKey];
+            }
+
+            // Check AI-generated activities first
+            if (report.aiGenerated?.activities) {
+                const aiActivity = report.aiGenerated.activities.find(a => a.contractorId === contractorId);
+                if (aiActivity) {
+                    return {
+                        contractorId: contractorId,
+                        noWork: aiActivity.noWork ?? false,
+                        narrative: aiActivity.narrative || '',
+                        equipmentUsed: aiActivity.equipmentUsed || '',
+                        crew: aiActivity.crew || ''
+                    };
+                }
+            }
+
+            // Fall back to report.activities
             if (!report.activities) return null;
             return report.activities.find(a => a.contractorId === contractorId);
         }
@@ -1386,7 +1472,33 @@
             updatePersonnelTotals();
         }
 
+        /**
+         * Get contractor operations/personnel with priority: userEdits > aiGenerated > report.operations
+         */
         function getContractorOperations(contractorId) {
+            // Check if user has edited this contractor's operations
+            const userEditKey = `operations_${contractorId}`;
+            if (userEdits[userEditKey]) {
+                return userEdits[userEditKey];
+            }
+
+            // Check AI-generated operations first
+            if (report.aiGenerated?.operations) {
+                const aiOps = report.aiGenerated.operations.find(o => o.contractorId === contractorId);
+                if (aiOps) {
+                    return {
+                        contractorId: contractorId,
+                        superintendents: aiOps.superintendents || null,
+                        foremen: aiOps.foremen || null,
+                        operators: aiOps.operators || null,
+                        laborers: aiOps.laborers || null,
+                        surveyors: aiOps.surveyors || null,
+                        others: aiOps.others || null
+                    };
+                }
+            }
+
+            // Fall back to report.operations
             if (!report.operations) return null;
             return report.operations.find(o => o.contractorId === contractorId);
         }
@@ -1435,10 +1547,43 @@
         }
 
         // ============ RENDER EQUIPMENT TABLE ============
+        /**
+         * Get equipment data with priority: report.equipment (user edited) > aiGenerated.equipment
+         */
+        function getEquipmentData() {
+            // If user has saved equipment data, use that
+            if (report.equipment && report.equipment.length > 0) {
+                return report.equipment;
+            }
+
+            // Check AI-generated equipment
+            if (report.aiGenerated?.equipment && report.aiGenerated.equipment.length > 0) {
+                return report.aiGenerated.equipment.map(aiItem => {
+                    // Try to match equipmentId to project config for type/model
+                    let type = aiItem.type || '';
+                    if (aiItem.equipmentId && activeProject?.equipment) {
+                        const projectEquip = activeProject.equipment.find(e => e.id === aiItem.equipmentId);
+                        if (projectEquip) {
+                            type = projectEquip.type || projectEquip.model || type;
+                        }
+                    }
+                    return {
+                        contractorId: aiItem.contractorId || '',
+                        type: type,
+                        qty: aiItem.qty || aiItem.quantity || 1,
+                        status: aiItem.status || aiItem.hoursUsed ? `${aiItem.hoursUsed} hrs` : 'IDLE'
+                    };
+                });
+            }
+
+            return [];
+        }
+
         function renderEquipmentTable() {
             const tbody = document.getElementById('equipmentTableBody');
+            const equipmentData = getEquipmentData();
 
-            if (!report.equipment || report.equipment.length === 0) {
+            if (equipmentData.length === 0) {
                 // Show empty state with one blank row
                 tbody.innerHTML = `
                     <tr data-equipment-index="0">
@@ -1462,7 +1607,7 @@
                 return;
             }
 
-            tbody.innerHTML = report.equipment.map((item, index) => `
+            tbody.innerHTML = equipmentData.map((item, index) => `
                 <tr data-equipment-index="${index}">
                     <td>
                         <select class="equipment-contractor w-full text-xs p-1">
