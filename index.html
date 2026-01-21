@@ -612,49 +612,32 @@
                     </div>
                 `;
 
-            } else if (report.meta?.interviewCompleted && !report.meta?.submitted && !report.meta?.reportViewed) {
-                // STATE: Interview Complete, Not Yet Viewed Report (needs AI refinement)
-                statusSection.innerHTML = `
-                    <div class="bg-white border-2 border-violet-500 p-6">
-                        <div class="text-center">
-                            <div class="w-16 h-16 bg-violet-500 flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-magic text-white text-2xl"></i>
-                            </div>
-                            <p class="text-xs font-bold text-violet-500 uppercase tracking-wider mb-1">Interview Complete</p>
-                            <p class="text-sm text-slate-700 font-medium mb-1">Report Ready for Refinement</p>
-                            <p class="text-xs text-slate-500 mb-4">Use AI tools to polish your report</p>
-                            <a href="review.html" class="block w-full bg-violet-500 hover:bg-violet-600 text-white p-4 transition-colors mb-3">
-                                <div class="flex items-center justify-center gap-3">
-                                    <i class="fas fa-magic text-white"></i>
-                                    <span class="font-bold uppercase tracking-wide">Refine with AI</span>
-                                </div>
-                            </a>
-                            <a href="quick-interview.html" class="text-sm text-slate-500 hover:text-dot-blue transition-colors">
-                                <i class="fas fa-edit mr-1"></i>or continue editing
-                            </a>
-                        </div>
-                    </div>
-                `;
+            } else if (report.meta?.interviewCompleted && !report.meta?.submitted) {
+                // STATE: Interview Complete, Ready for Review & Submit
+                const isPending = report.meta?.status === 'pending_refine';
+                const statusColor = isPending ? 'border-dot-yellow' : 'border-dot-blue';
+                const iconBg = isPending ? 'bg-dot-yellow' : 'bg-dot-blue';
+                const labelColor = isPending ? 'text-dot-yellow' : 'text-dot-blue';
+                const statusLabel = isPending ? 'Processing Pending' : 'Ready for Review';
+                const statusDesc = isPending ? 'AI processing will complete when online' : 'Review and submit your report';
 
-            } else if (report.meta?.interviewCompleted && !report.meta?.submitted && report.meta?.reportViewed) {
-                // STATE: Report Viewed, Ready for Final Review & Submit
                 statusSection.innerHTML = `
-                    <div class="bg-white border-2 border-dot-blue p-6">
+                    <div class="bg-white border-2 ${statusColor} p-6">
                         <div class="text-center">
-                            <div class="w-16 h-16 bg-dot-blue flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-clipboard-check text-white text-2xl"></i>
+                            <div class="w-16 h-16 ${iconBg} flex items-center justify-center mx-auto mb-4">
+                                <i class="fas ${isPending ? 'fa-clock' : 'fa-clipboard-check'} text-white text-2xl"></i>
                             </div>
-                            <p class="text-xs font-bold text-dot-blue uppercase tracking-wider mb-1">Ready for Review</p>
+                            <p class="text-xs font-bold ${labelColor} uppercase tracking-wider mb-1">${statusLabel}</p>
                             <p class="text-sm text-slate-700 font-medium mb-1">Report Complete</p>
-                            <p class="text-xs text-slate-500 mb-4">Review and submit your report</p>
+                            <p class="text-xs text-slate-500 mb-4">${statusDesc}</p>
                             <a href="report.html" class="block w-full bg-safety-green hover:bg-green-700 text-white p-4 transition-colors mb-3">
                                 <div class="flex items-center justify-center gap-3">
                                     <i class="fas fa-check-circle text-white"></i>
                                     <span class="font-bold uppercase tracking-wide">Review & Submit</span>
                                 </div>
                             </a>
-                            <a href="review.html" class="text-sm text-slate-500 hover:text-violet-500 transition-colors">
-                                <i class="fas fa-magic mr-1"></i>or refine with AI Kit
+                            <a href="quick-interview.html" class="text-sm text-slate-500 hover:text-dot-blue transition-colors">
+                                <i class="fas fa-edit mr-1"></i>or continue editing
                             </a>
                         </div>
                     </div>

@@ -57,8 +57,7 @@
 /
 ├── index.html              # Home dashboard / main entry point with project selection
 ├── quick-interview.html    # Daily report flow (contractor-based DOT field entry)
-├── review.html             # AI Kit - text refinement & editing via n8n webhook
-├── report.html             # Print-ready PDF report viewer/generator
+├── report.html             # AI-populated editable report with original notes view
 ├── archives.html           # Report archives with swipe-to-delete functionality
 ├── editor.html             # Photo editor & section-specific editing
 ├── permissions.html        # System setup, permission testing (mic, camera, GPS)
@@ -94,8 +93,7 @@
 |------|-------|---------|
 | `index.html` | ~887 | Dashboard with project selection, active project display, weather, and navigation |
 | `quick-interview.html` | ~2,487 | DOT-compliant report with 12 sections: Weather, Contractor Work, Personnel, Equipment, Issues, Inspections, Safety, Contractor Communications, Visitors/Deliveries, Photos |
-| `review.html` | ~1,296 | AI Kit - side-by-side original vs. AI-refined text comparison with manual editing, n8n webhook integration |
-| `report.html` | ~945 | Professional PDF-ready report with submit functionality, streamlined navigation |
+| `report.html` | ~1,700 | AI-populated editable DOT form with Form View and Original Notes tabs, submit functionality |
 | `archives.html` | ~431 | Report history with swipe-to-delete, date-sorted report list, view/delete past reports |
 | `editor.html` | ~674 | Photo capture with GPS embedding, section-specific editing interface |
 | `permissions.html` | ~1,596 | Permission testing (mic, camera, GPS), iOS-specific instructions for native dictation |
@@ -309,8 +307,8 @@
     }
   ],
 
-  // Edited versions of text (populated after review.html editing)
-  refinedData: {
+  // AI-generated content (populated by AI processing webhook)
+  aiGenerated: {
     weather: "Site conditions were dry with partly cloudy skies...",
     activities: "The contractor continued earthwork operations...",
     issues: "A utility conflict was identified at Station 45+00...",
@@ -480,7 +478,7 @@
      │
      ├─► Progress bar shows completion percentage (12 sections)
      │
-     └─► User clicks "Finish" ─► [review.html] (AI Kit)
+     └─► User clicks "Finish" ─► Webhook processes data ─► [report.html]
 ```
 
 ### 5. Voice Input Flow (Native Keyboard Dictation)
@@ -504,32 +502,33 @@ providing consistent, reliable behavior across all platforms without custom
 microphone buttons.
 ```
 
-### 6. AI Kit Flow (review.html)
+### 6. AI Processing Flow (Integrated)
 
 ```
-[review.html] Loaded with report data (AI Kit)
+User clicks "Finish" in quick-interview.html
      │
-     ├─► Display side-by-side: Original | AI Refined
+     ├─► Validation:
+     │    ├─► Guided mode: workSummary required, safety must be answered
+     │    └─► Minimal mode: freeformNotes required
      │
-     ├─► User can:
-     │    ├─► Click "Refine All" ─► Process all sections
-     │    ├─► Click individual "Refine" ─► Process single section
-     │    ├─► Manually edit either column
-     │    └─► Export training data for prompt refinement
+     ├─► Webhook call to n8n (fieldvoice-refine):
+     │    ├─► Send field notes, weather, photos metadata, project context
+     │    ├─► n8n workflow processes and returns AI-generated content
+     │    └─► Store result in report.aiGenerated
      │
-     ├─► Refinement Process (via n8n webhook):
-     │    ├─► Send original text + section name + report context
-     │    ├─► n8n workflow processes and returns refined text
-     │    └─► Display with typing animation
-     │
-     ├─► AI Refinement Rules (enforced by n8n workflow):
+     ├─► AI Processing Rules (enforced by n8n workflow):
      │    ├─► Never invent or add information
      │    ├─► Keep all facts, quantities, names exactly as stated
      │    ├─► Convert informal language to professional tone
      │    ├─► Format for DOT documentation standards
      │    └─► Highlight safety concerns appropriately
      │
-     └─► User clicks "Export" ─► [report.html]
+     ├─► Offline handling:
+     │    ├─► Queue processing request in offlineQueue
+     │    ├─► Set status to 'pending_refine'
+     │    └─► Show retry banner on report.html when online
+     │
+     └─► Navigate to [report.html]
 ```
 
 ### 7. Report Generation Flow
@@ -537,16 +536,21 @@ microphone buttons.
 ```
 [report.html] Loaded with report data
      │
-     ├─► Navigation bar with:
-     │    ├─► Home button (return to dashboard)
-     │    ├─► Back to AI Kit link
-     │    └─► Submit button
+     ├─► Tab toggle: "Form View" | "Original Notes"
      │
-     ├─► Render 4-page professional report:
-     │    ├─► Page 1: Project Overview + Daily Work Summary
-     │    ├─► Page 2: Personnel Table + Equipment Table
-     │    ├─► Page 3: Issues, Visitors, QA/QC, Safety + Signature
-     │    └─► Page 4: Photo Gallery (if photos exist)
+     ├─► Form View (default):
+     │    ├─► Data priority: userEdits > aiGenerated > fieldNotes > defaults
+     │    ├─► Editable DOT-format form fields
+     │    └─► Changes saved as userEdits
+     │
+     ├─► Original Notes View:
+     │    ├─► Shows raw field capture data
+     │    ├─► Display mode (minimal vs guided)
+     │    └─► Photo thumbnails with original captions
+     │
+     ├─► Pending refine banner (if offline during processing):
+     │    ├─► Shows when status is 'pending_refine'
+     │    └─► "Retry Now" button to re-process
      │
      ├─► User clicks "Submit"
      │    ├─► Confirmation modal appears
@@ -655,7 +659,7 @@ The application uses n8n webhooks for AI text refinement, report submission, and
 **Webhook Endpoints:**
 | Endpoint | Location | Purpose |
 |----------|----------|---------|
-| **N8N_REFINE_WEBHOOK** | `review.html` | AI text refinement requests |
+| **N8N_PROCESS_WEBHOOK** | `quick-interview.html` | AI processing on finish |
 | **N8N_SUBMIT_WEBHOOK** | `report.html` | Submitting completed reports |
 | **EXTRACT_WEBHOOK_URL** | `project-config.html` | Document extraction for project setup |
 
@@ -975,7 +979,7 @@ npx serve .
 1. Add section HTML to `quick-interview.html`
 2. Add corresponding data field to report object structure
 3. Update `renderSection()` function for display
-4. Add refinement support in `review.html`
+4. Update `buildProcessPayload()` to include new field for AI processing
 5. Add export rendering in `report.html`
 
 ---
@@ -985,9 +989,8 @@ npx serve .
 | File | Lines | Size (approx) |
 |------|-------|---------------|
 | index.html | 887 | 43 KB |
-| quick-interview.html | 2,487 | 139 KB |
-| review.html | 1,296 | 64 KB |
-| report.html | 945 | 46 KB |
+| quick-interview.html | 3,100 | 160 KB |
+| report.html | 1,700 | 85 KB |
 | archives.html | 431 | 19 KB |
 | editor.html | 674 | 32 KB |
 | permissions.html | 1,596 | 81 KB |

@@ -275,8 +275,8 @@
     <header class="sticky top-0 z-50 bg-dot-navy text-white shadow-lg">
         <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <a href="review.html" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors">
-                    <i class="fas fa-arrow-left text-slate-400"></i>
+                <a href="index.html" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors" title="Home">
+                    <i class="fas fa-home text-slate-400"></i>
                 </a>
                 <div>
                     <h1 class="font-bold text-sm uppercase tracking-wide">Daily Report</h1>
@@ -300,8 +300,92 @@
         </div>
     </header>
 
+    <!-- TAB TOGGLE -->
+    <div class="max-w-4xl mx-auto bg-dot-navy border-b border-slate-700">
+        <div class="flex">
+            <button id="tabFormView" onclick="switchTab('form')" class="flex-1 px-4 py-3 text-sm font-bold uppercase tracking-wide border-b-2 border-dot-orange text-white transition-colors">
+                <i class="fas fa-edit mr-2"></i>Form View
+            </button>
+            <button id="tabOriginalNotes" onclick="switchTab('notes')" class="flex-1 px-4 py-3 text-sm font-bold uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-white transition-colors">
+                <i class="fas fa-microphone mr-2"></i>Original Notes
+            </button>
+        </div>
+    </div>
+
+    <!-- PENDING REFINE BANNER -->
+    <div id="pendingRefineBanner" class="hidden max-w-4xl mx-auto">
+        <div class="bg-yellow-500/20 border-b border-yellow-500 p-3 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-yellow-700">
+                <i class="fas fa-wifi-slash"></i>
+                <span class="text-sm font-medium">AI processing pending - showing raw notes. Will update when online.</span>
+            </div>
+            <button id="retryRefine" onclick="retryRefineProcessing()" class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-bold uppercase transition-colors">
+                Retry Now
+            </button>
+        </div>
+    </div>
+
     <!-- MAIN CONTENT -->
     <main class="max-w-4xl mx-auto pb-24">
+
+        <!-- ORIGINAL NOTES VIEW (hidden by default) -->
+        <div id="originalNotesView" class="hidden p-4">
+            <div class="bg-dot-blue/10 border border-dot-blue/30 rounded-lg p-4 mb-6">
+                <h3 class="text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                    <i class="fas fa-microphone text-dot-orange"></i>
+                    Original Field Notes
+                </h3>
+                <p class="text-sm text-slate-500 mb-4">
+                    Capture Mode: <span id="captureModeBadge" class="bg-dot-navy text-white px-2 py-1 rounded text-xs font-bold uppercase">Guided</span>
+                </p>
+
+                <!-- If Minimal Mode -->
+                <div id="minimalNotesSection" class="hidden">
+                    <h4 class="text-md font-medium text-slate-700 mb-2">Field Notes</h4>
+                    <div class="bg-white border border-slate-200 p-3 rounded text-slate-700 whitespace-pre-wrap" id="originalFreeformNotes">
+                        No notes captured
+                    </div>
+                </div>
+
+                <!-- If Guided Mode -->
+                <div id="guidedNotesSection" class="space-y-4">
+                    <div>
+                        <h4 class="text-md font-medium text-slate-700 mb-2">Work Summary</h4>
+                        <div class="bg-white border border-slate-200 p-3 rounded text-slate-700 whitespace-pre-wrap" id="originalWorkSummary">No work summary</div>
+                    </div>
+                    <div>
+                        <h4 class="text-md font-medium text-slate-700 mb-2">Issues & Delays</h4>
+                        <div class="bg-white border border-slate-200 p-3 rounded text-slate-700 whitespace-pre-wrap" id="originalIssues">N/A</div>
+                    </div>
+                    <div>
+                        <h4 class="text-md font-medium text-slate-700 mb-2">Safety</h4>
+                        <div class="bg-white border border-slate-200 p-3 rounded text-slate-700 whitespace-pre-wrap" id="originalSafety">No safety notes</div>
+                    </div>
+                </div>
+
+                <!-- Weather (both modes) -->
+                <div class="mt-4">
+                    <h4 class="text-md font-medium text-slate-700 mb-2">Weather</h4>
+                    <div class="bg-white border border-slate-200 p-3 rounded text-slate-700" id="originalWeather">
+                        N/A
+                    </div>
+                </div>
+            </div>
+
+            <!-- Photos in original notes view -->
+            <div class="bg-dot-blue/10 border border-dot-blue/30 rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-camera text-dot-orange"></i>
+                    Captured Photos
+                </h3>
+                <div id="originalPhotosGrid" class="grid grid-cols-2 gap-4">
+                    <p class="text-slate-500 col-span-2 text-center py-4">No photos captured</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORM VIEW CONTENT -->
+        <div id="formViewContent">
 
         <!-- 1. PROJECT OVERVIEW SECTION -->
         <section class="bg-white border-b-4 border-slate-200 mb-4">
@@ -597,6 +681,8 @@
             </div>
         </section>
 
+        </div><!-- END formViewContent -->
+
     </main>
 
     <!-- Save Indicator -->
@@ -635,9 +721,11 @@
         let userEdits = {}; // Track user edits separately
         let saveTimeout = null;
         let isReadonly = false;
+        let currentTab = 'form';
 
         const PROJECTS_KEY = 'fvp_projects';
         const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+        const N8N_PROCESS_WEBHOOK = 'https://advidere.app.n8n.cloud/webhook/fieldvoice-refine';
 
         // ============ INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
@@ -651,8 +739,19 @@
             if (!report.userEdits) report.userEdits = {};
             userEdits = report.userEdits;
 
+            // Mark report as viewed
+            if (!report.meta) report.meta = {};
+            report.meta.reportViewed = true;
+            saveReportSilent();
+
             // Populate all fields
             populateAllFields();
+
+            // Populate original notes view
+            populateOriginalNotes();
+
+            // Check for pending refine status
+            checkPendingRefineStatus();
 
             // Setup auto-save listeners
             setupAutoSave();
@@ -663,6 +762,173 @@
             // Update header date
             updateHeaderDate();
         });
+
+        // ============ TAB SWITCHING ============
+        function switchTab(tab) {
+            currentTab = tab;
+            const tabFormView = document.getElementById('tabFormView');
+            const tabOriginalNotes = document.getElementById('tabOriginalNotes');
+            const formViewContent = document.getElementById('formViewContent');
+            const originalNotesView = document.getElementById('originalNotesView');
+
+            if (tab === 'form') {
+                tabFormView.classList.add('border-dot-orange', 'text-white');
+                tabFormView.classList.remove('border-transparent', 'text-slate-400');
+                tabOriginalNotes.classList.remove('border-dot-orange', 'text-white');
+                tabOriginalNotes.classList.add('border-transparent', 'text-slate-400');
+                formViewContent.classList.remove('hidden');
+                originalNotesView.classList.add('hidden');
+            } else {
+                tabOriginalNotes.classList.add('border-dot-orange', 'text-white');
+                tabOriginalNotes.classList.remove('border-transparent', 'text-slate-400');
+                tabFormView.classList.remove('border-dot-orange', 'text-white');
+                tabFormView.classList.add('border-transparent', 'text-slate-400');
+                originalNotesView.classList.remove('hidden');
+                formViewContent.classList.add('hidden');
+            }
+        }
+
+        // ============ ORIGINAL NOTES POPULATION ============
+        function populateOriginalNotes() {
+            if (!report) return;
+
+            const mode = report.meta?.captureMode || 'guided';
+            document.getElementById('captureModeBadge').textContent = mode === 'minimal' ? 'Quick Notes' : 'Guided';
+
+            if (mode === 'minimal') {
+                document.getElementById('minimalNotesSection').classList.remove('hidden');
+                document.getElementById('guidedNotesSection').classList.add('hidden');
+                document.getElementById('originalFreeformNotes').textContent = report.fieldNotes?.freeformNotes || 'No notes captured';
+            } else {
+                document.getElementById('minimalNotesSection').classList.add('hidden');
+                document.getElementById('guidedNotesSection').classList.remove('hidden');
+                document.getElementById('originalWorkSummary').textContent = report.guidedNotes?.workSummary || 'No work summary';
+                document.getElementById('originalIssues').textContent = report.guidedNotes?.issues || report.generalIssues?.join('\n') || 'N/A';
+                document.getElementById('originalSafety').textContent = formatOriginalSafety(report);
+            }
+
+            // Weather
+            const w = report.overview?.weather || {};
+            document.getElementById('originalWeather').innerHTML = `
+                High: ${w.highTemp || 'N/A'} | Low: ${w.lowTemp || 'N/A'}<br>
+                ${w.generalCondition || 'N/A'} | Site: ${w.jobSiteCondition || 'N/A'}
+            `;
+
+            // Photos
+            populateOriginalPhotos(report.photos || []);
+        }
+
+        function formatOriginalSafety(report) {
+            if (report.safety?.noIncidents) {
+                return 'No incidents reported';
+            } else if (report.safety?.hasIncidents) {
+                return 'INCIDENT REPORTED\n' + (report.safety?.notes?.join('\n') || '');
+            } else if (report.safety?.notes?.length > 0) {
+                return report.safety.notes.join('\n');
+            }
+            return 'No safety notes';
+        }
+
+        function populateOriginalPhotos(photos) {
+            const container = document.getElementById('originalPhotosGrid');
+            if (!photos || photos.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 col-span-2 text-center py-4">No photos captured</p>';
+                return;
+            }
+
+            container.innerHTML = photos.map((photo, index) => `
+                <div class="bg-white border border-slate-200 rounded overflow-hidden">
+                    <div class="aspect-square bg-slate-100">
+                        <img src="${photo.url}" class="w-full h-full object-cover" alt="Photo ${index + 1}">
+                    </div>
+                    <div class="p-2">
+                        <p class="text-xs text-slate-500">${photo.date || ''} ${photo.time || ''}</p>
+                        <p class="text-sm text-slate-700 mt-1">${escapeHtml(photo.caption) || '<em class="text-slate-400">No caption</em>'}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============ PENDING REFINE HANDLING ============
+        function checkPendingRefineStatus() {
+            if (report.meta?.status === 'pending_refine') {
+                document.getElementById('pendingRefineBanner').classList.remove('hidden');
+            } else {
+                document.getElementById('pendingRefineBanner').classList.add('hidden');
+            }
+        }
+
+        async function retryRefineProcessing() {
+            if (!navigator.onLine) {
+                alert('Still offline - please connect to the internet and try again.');
+                return;
+            }
+
+            const queued = report.meta?.offlineQueue?.find(q => q.type === 'refine');
+            if (!queued) {
+                alert('No pending processing found.');
+                return;
+            }
+
+            const retryBtn = document.getElementById('retryRefine');
+            const originalBtnHtml = retryBtn.innerHTML;
+            retryBtn.disabled = true;
+            retryBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Processing...';
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+                const response = await fetch(N8N_PROCESS_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(queued.payload),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Webhook failed: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                // Save AI response
+                if (result.aiGenerated) {
+                    report.aiGenerated = result.aiGenerated;
+                }
+                report.meta.status = 'refined';
+
+                // Remove from offline queue
+                report.meta.offlineQueue = report.meta.offlineQueue.filter(q => q.type !== 'refine');
+                saveReport();
+
+                // Hide banner and refresh page to show new data
+                document.getElementById('pendingRefineBanner').classList.add('hidden');
+                alert('AI processing complete! Refreshing data...');
+                location.reload();
+
+            } catch (error) {
+                console.error('Retry failed:', error);
+                retryBtn.disabled = false;
+                retryBtn.innerHTML = originalBtnHtml;
+                alert('Processing failed. Please try again later.');
+            }
+        }
+
+        // Save report without showing indicator (for silent updates)
+        function saveReportSilent() {
+            try {
+                const key = getReportKey();
+                report.meta = report.meta || {};
+                report.meta.lastSaved = new Date().toISOString();
+                localStorage.setItem(key, JSON.stringify(report));
+                localStorage.setItem('fieldvoice_report', JSON.stringify(report));
+            } catch (err) {
+                console.error('Failed to save report:', err);
+            }
+        }
 
         // ============ PROJECT LOADING ============
         function loadActiveProject() {

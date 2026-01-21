@@ -1106,16 +1106,162 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             renderMinimalPhotos();
         }
 
+        // ============ AI PROCESSING WEBHOOK ============
+        const N8N_PROCESS_WEBHOOK = 'https://advidere.app.n8n.cloud/webhook/fieldvoice-refine';
+
         /**
-         * Finish the minimal mode report and go to review
+         * Build the payload for AI processing
          */
-        function finishMinimalReport() {
+        function buildProcessPayload() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const reportKey = getReportKey(activeProject?.id, todayStr);
+
+            return {
+                reportId: reportKey,
+                captureMode: report.meta.captureMode || 'guided',
+
+                projectContext: {
+                    projectId: activeProject?.id || null,
+                    projectName: activeProject?.name || report.project?.name || '',
+                    noabProjectNo: activeProject?.noabProjectNo || '',
+                    location: activeProject?.location || '',
+                    engineer: activeProject?.engineer || '',
+                    primeContractor: activeProject?.primeContractor || '',
+                    contractors: activeProject?.contractors || [],
+                    equipment: activeProject?.equipment || []
+                },
+
+                fieldNotes: report.meta.captureMode === 'minimal'
+                    ? { freeformNotes: report.fieldNotes?.freeformNotes || '' }
+                    : {
+                        workSummary: report.guidedNotes?.workSummary || '',
+                        issues: report.guidedNotes?.issues || '',
+                        safety: report.guidedNotes?.safety || ''
+                      },
+
+                weather: report.overview?.weather || {},
+
+                photos: (report.photos || []).map(p => ({
+                    id: p.id,
+                    caption: p.caption || '',
+                    timestamp: p.timestamp,
+                    date: p.date,
+                    time: p.time,
+                    gps: p.gps
+                })),
+
+                reportDate: report.overview?.date || new Date().toLocaleDateString(),
+                inspectorName: report.overview?.completedBy || ''
+            };
+        }
+
+        /**
+         * Call the AI processing webhook
+         */
+        async function callProcessWebhook(payload) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+            try {
+                const response = await fetch(N8N_PROCESS_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Webhook failed: ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+        }
+
+        /**
+         * Handle offline/error scenario for AI processing
+         */
+        function handleOfflineProcessing(payload) {
+            report.meta.status = 'pending_refine';
+            report.meta.offlineQueue = report.meta.offlineQueue || [];
+            report.meta.offlineQueue.push({
+                type: 'refine',
+                payload: payload,
+                queuedAt: new Date().toISOString()
+            });
+            saveReport();
+            showToast("You're offline - AI processing will complete when connected", 'warning');
+        }
+
+        /**
+         * Finish the minimal mode report with AI processing
+         */
+        async function finishMinimalReport() {
+            // Validate
+            const freeformNotes = report.fieldNotes?.freeformNotes?.trim();
+            if (!freeformNotes) {
+                showToast('Field notes are required', 'error');
+                document.getElementById('minimalNotesInput')?.focus();
+                return;
+            }
+
+            // Get button reference for loading state
+            const finishBtn = document.querySelector('#minimalModeScreen button[onclick="finishMinimalReport()"]');
+            const originalBtnHtml = finishBtn ? finishBtn.innerHTML : '';
+
+            // Show loading state
+            if (finishBtn) {
+                finishBtn.disabled = true;
+                finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing with AI...';
+            }
+            showToast('Processing with AI...', 'info');
+
             // Mark as interview completed
             report.meta.interviewCompleted = true;
+            report.overview.endTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
             saveReport();
 
-            // Navigate to review page
-            window.location.href = 'review.html';
+            // Build payload
+            const payload = buildProcessPayload();
+
+            // Check if online
+            if (!navigator.onLine) {
+                handleOfflineProcessing(payload);
+                window.location.href = 'report.html';
+                return;
+            }
+
+            // Call webhook
+            try {
+                const result = await callProcessWebhook(payload);
+
+                // Save AI response
+                if (result.aiGenerated) {
+                    report.aiGenerated = result.aiGenerated;
+                }
+                report.meta.status = 'refined';
+                saveReport();
+
+                // Navigate to report
+                window.location.href = 'report.html';
+            } catch (error) {
+                console.error('AI processing failed:', error);
+
+                // Restore button state
+                if (finishBtn) {
+                    finishBtn.disabled = false;
+                    finishBtn.innerHTML = originalBtnHtml;
+                }
+
+                // Handle as offline
+                handleOfflineProcessing(payload);
+                window.location.href = 'report.html';
+            }
         }
 
         // ============ PROJECT & CONTRACTOR LOADING ============
@@ -2851,7 +2997,7 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             localStorage.setItem('permissions_dismissed', 'true');
         }
 
-        function finishReport() {
+        async function finishReport() {
             // Validate required fields before finishing
             const workSummary = report.guidedNotes?.workSummary?.trim();
             const safetyAnswered = report.safety.noIncidents === true || report.safety.hasIncidents === true;
@@ -2877,6 +3023,18 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 return;
             }
 
+            // Get button reference for loading state
+            const finishBtn = document.querySelector('button[onclick="finishReport()"]');
+            const originalBtnHtml = finishBtn ? finishBtn.innerHTML : '';
+
+            // Show loading state
+            if (finishBtn) {
+                finishBtn.disabled = true;
+                finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Processing...';
+            }
+            showToast('Processing with AI...', 'info');
+
+            // Set up report data
             report.overview.endTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
             report.meta.interviewCompleted = true;
             if (report.overview.startTime) {
@@ -2888,8 +3046,48 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 report.overview.shiftDuration = `${hours}.${String(mins).padStart(2, '0')} hours`;
             }
             if (report.safety.notes.length === 0) { report.safety.notes.push('No safety incidents reported.'); }
+
+            // Store guided notes for AI processing
+            report.guidedNotes.issues = report.generalIssues?.join('\n') || '';
+            report.guidedNotes.safety = report.safety.noIncidents ? 'No incidents reported' : (report.safety.hasIncidents ? 'INCIDENT REPORTED: ' + report.safety.notes.join('; ') : '');
             saveReport();
-            window.location.href = 'review.html';
+
+            // Build payload
+            const payload = buildProcessPayload();
+
+            // Check if online
+            if (!navigator.onLine) {
+                handleOfflineProcessing(payload);
+                window.location.href = 'report.html';
+                return;
+            }
+
+            // Call webhook
+            try {
+                const result = await callProcessWebhook(payload);
+
+                // Save AI response
+                if (result.aiGenerated) {
+                    report.aiGenerated = result.aiGenerated;
+                }
+                report.meta.status = 'refined';
+                saveReport();
+
+                // Navigate to report
+                window.location.href = 'report.html';
+            } catch (error) {
+                console.error('AI processing failed:', error);
+
+                // Restore button state
+                if (finishBtn) {
+                    finishBtn.disabled = false;
+                    finishBtn.innerHTML = originalBtnHtml;
+                }
+
+                // Handle as offline
+                handleOfflineProcessing(payload);
+                window.location.href = 'report.html';
+            }
         }
 
         // ============ EVENT LISTENERS ============
@@ -2926,7 +3124,7 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
 
             report = getReport();
 
-            // If user came back to edit a "completed" report (from review.html), mark it as in-progress again
+            // If user came back to edit a "completed" report (from report.html), mark it as in-progress again
             // This ensures the dashboard shows "In Progress" instead of "Ready for Review" while editing
             if (report.meta?.interviewCompleted && !report.meta?.submitted) {
                 report.meta.interviewCompleted = false;
