@@ -39,6 +39,17 @@
             background: #ef4444;
             animation: pulse-recording 1.5s ease-out infinite;
         }
+        /* Auto-expanding textareas */
+        .auto-expand {
+            min-height: 72px; /* ~3 lines */
+            max-height: 400px;
+            overflow-y: hidden;
+            resize: none;
+            transition: height 0.1s ease-out;
+        }
+        .auto-expand.scrollable {
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
@@ -103,6 +114,56 @@
 
         // ============ STATE ============
         let currentSection = 'photos';
+
+        // ============ AUTO-EXPAND TEXTAREAS ============
+        /**
+         * Auto-expand a textarea to fit its content
+         */
+        function autoExpand(textarea) {
+            if (!textarea) return;
+
+            const maxHeight = 400;
+            const minHeight = 72; // ~3 lines
+
+            textarea.style.height = 'auto';
+            const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+            textarea.style.height = newHeight + 'px';
+
+            if (textarea.scrollHeight > maxHeight) {
+                textarea.classList.add('scrollable');
+            } else {
+                textarea.classList.remove('scrollable');
+            }
+        }
+
+        /**
+         * Initialize auto-expand behavior on a textarea
+         */
+        function initAutoExpand(textarea) {
+            if (!textarea || textarea.dataset.autoExpandInit) return;
+
+            textarea.dataset.autoExpandInit = 'true';
+
+            if (!textarea.classList.contains('auto-expand')) {
+                textarea.classList.add('auto-expand');
+            }
+
+            textarea.addEventListener('input', () => autoExpand(textarea));
+            textarea.addEventListener('change', () => autoExpand(textarea));
+            textarea.addEventListener('focus', () => autoExpand(textarea));
+            textarea.addEventListener('blur', () => {
+                setTimeout(() => autoExpand(textarea), 10);
+            });
+
+            autoExpand(textarea);
+        }
+
+        /**
+         * Initialize all textareas with auto-expand class
+         */
+        function initAllAutoExpandTextareas() {
+            document.querySelectorAll('textarea.auto-expand').forEach(initAutoExpand);
+        }
 
         // ============ DICTATION HINT ============
         function showDictationHint() {
@@ -221,8 +282,8 @@
                                     </button>
                                 </div>
                                 <textarea
-                                    class="w-full p-2 bg-slate-50 border border-slate-100 rounded-lg text-sm resize-none focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    rows="2"
+                                    class="w-full p-2 bg-slate-50 border border-slate-100 rounded-lg text-sm auto-expand focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    rows="3"
                                     placeholder="Add caption..."
                                     data-photo-idx="${idx}"
                                 >${p.caption || ''}</textarea>
@@ -247,6 +308,9 @@
                     }
                 });
             });
+
+            // Initialize auto-expand for dynamically created textareas
+            initAllAutoExpandTextareas();
         }
 
         function renderActivities(container, report) {
@@ -261,8 +325,8 @@
                                 </button>
                             </div>
                             <textarea
-                                class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm resize-none focus:ring-2 focus:ring-emerald-500 outline-none"
-                                rows="4"
+                                class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm auto-expand focus:ring-2 focus:ring-emerald-500 outline-none"
+                                rows="3"
                                 data-activity-idx="${idx}"
                             >${act.narrative || ''}</textarea>
                         </div>
@@ -286,6 +350,9 @@
                     }
                 });
             });
+
+            // Initialize auto-expand for dynamically created textareas
+            initAllAutoExpandTextareas();
         }
 
         function renderOperations(container, report) {
