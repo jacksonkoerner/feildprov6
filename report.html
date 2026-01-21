@@ -134,14 +134,110 @@
             border-color: #94a3b8;
             background: #f8fafc;
         }
-        /* Photo grid */
-        .photo-item {
-            position: relative;
+        /* Photo cards - single column layout for DOT compliance */
+        .photo-card {
+            border: 2px solid #e2e8f0;
+            margin-bottom: 1.5rem;
+            background: white;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .photo-item img {
-            width: 100%;
-            height: auto;
+        .photo-card-header {
+            background: #f1f5f9;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .photo-card-image {
+            position: relative;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+        }
+        .photo-card-image img {
             display: block;
+            max-width: 100%;
+            max-height: 600px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        /* Portrait photos - centered with max height */
+        .photo-card-image.portrait img {
+            max-height: 500px;
+        }
+        /* Landscape photos - full width */
+        .photo-card-image.landscape img {
+            width: 100%;
+            max-height: 450px;
+            object-fit: contain;
+        }
+        .photo-card-image .photo-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+        }
+        .photo-card-image .photo-error {
+            padding: 2rem;
+            text-align: center;
+            color: #94a3b8;
+        }
+        .photo-card-footer {
+            padding: 1rem;
+            border-top: 1px solid #e2e8f0;
+            background: #fafafa;
+        }
+        .photo-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .photo-card-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .photo-card-caption {
+            width: 100%;
+            min-height: 60px;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            background: white;
+            font-size: 0.875rem;
+            resize: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .photo-card-caption:focus {
+            outline: none;
+            border-color: #1e3a5f;
+            box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.1);
+        }
+        .photo-card-caption::placeholder {
+            color: #94a3b8;
+            font-style: italic;
+        }
+        /* Print styles for photos */
+        @media print {
+            .photo-card {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                margin-bottom: 1rem;
+            }
+            .photo-card-image img {
+                max-height: 400px;
+            }
         }
         /* Save indicator */
         .save-indicator {
@@ -1188,36 +1284,89 @@
         function renderPhotos() {
             const container = document.getElementById('photosContainer');
             const photos = report.photos || [];
+            const totalPhotos = photos.length;
 
-            document.getElementById('photoCount').textContent = `${photos.length} photo${photos.length !== 1 ? 's' : ''}`;
+            document.getElementById('photoCount').textContent = `${totalPhotos} photo${totalPhotos !== 1 ? 's' : ''}`;
 
-            if (photos.length === 0) {
+            if (totalPhotos === 0) {
                 container.innerHTML = `
-                    <div class="text-center text-slate-400 py-8">
-                        <i class="fas fa-images text-4xl mb-2"></i>
-                        <p class="text-sm">No photos captured</p>
+                    <div class="text-center text-slate-400 py-12">
+                        <i class="fas fa-images text-5xl mb-3"></i>
+                        <p class="text-sm font-medium">No photos captured</p>
+                        <p class="text-xs mt-1">Photos from field capture will appear here</p>
                     </div>
                 `;
                 return;
             }
 
-            container.innerHTML = photos.map((photo, index) => `
-                <div class="photo-item mb-6 border border-slate-200 rounded overflow-hidden">
-                    <img src="${photo.url}" alt="Progress photo ${index + 1}" class="w-full">
-                    <div class="p-3 bg-slate-50">
-                        <div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                            <span><i class="fas fa-clock mr-1"></i>${photo.time || '--'}</span>
-                            ${photo.gps ? `<span><i class="fas fa-map-marker-alt mr-1"></i>${photo.gps.lat.toFixed(4)}, ${photo.gps.lng.toFixed(4)}</span>` : ''}
+            container.innerHTML = photos.map((photo, index) => {
+                const photoNum = index + 1;
+                const dateStr = photo.date || '--';
+                const timeStr = photo.time || '--';
+                const gpsStr = photo.gps
+                    ? `${photo.gps.lat.toFixed(5)}, ${photo.gps.lng.toFixed(5)}`
+                    : null;
+
+                return `
+                    <div class="photo-card" data-photo-index="${index}">
+                        <!-- Photo Header -->
+                        <div class="photo-card-header">
+                            <span>Photo ${photoNum} of ${totalPhotos}</span>
                         </div>
-                        <textarea class="editable-field auto-expand w-full px-3 py-2 text-sm photo-caption"
-                            data-photo-index="${index}"
-                            placeholder="Add caption...">${escapeHtml(photo.caption || '')}</textarea>
+
+                        <!-- Photo Image Container -->
+                        <div class="photo-card-image" id="photo-container-${index}">
+                            <!-- Loading state -->
+                            <div class="photo-loading" id="photo-loading-${index}">
+                                <i class="fas fa-spinner fa-spin text-2xl text-slate-400"></i>
+                            </div>
+                            <!-- Image (hidden until loaded) -->
+                            <img
+                                src="${photo.url}"
+                                alt="Progress photo ${photoNum}"
+                                id="photo-img-${index}"
+                                style="display: none;"
+                                onload="handlePhotoLoad(${index})"
+                                onerror="handlePhotoError(${index})"
+                            >
+                        </div>
+
+                        <!-- Photo Footer with metadata and caption -->
+                        <div class="photo-card-footer">
+                            <!-- Metadata Row -->
+                            <div class="photo-card-meta">
+                                <div class="photo-card-meta-item">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span>${dateStr}</span>
+                                </div>
+                                <div class="photo-card-meta-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span>${timeStr}</span>
+                                </div>
+                                ${gpsStr ? `
+                                <div class="photo-card-meta-item">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>${gpsStr}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+
+                            <!-- Caption -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Caption</label>
+                                <textarea
+                                    class="photo-card-caption auto-expand"
+                                    data-photo-index="${index}"
+                                    placeholder="Describe what this photo shows..."
+                                >${escapeHtml(photo.caption || '')}</textarea>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             // Setup caption listeners
-            document.querySelectorAll('.photo-caption').forEach(textarea => {
+            document.querySelectorAll('.photo-card-caption').forEach(textarea => {
                 textarea.addEventListener('blur', () => {
                     const index = parseInt(textarea.dataset.photoIndex);
                     if (report.photos[index]) {
@@ -1225,9 +1374,76 @@
                         scheduleSave();
                     }
                 });
+                // Also save on input with debounce for better UX
+                textarea.addEventListener('input', debounce(() => {
+                    const index = parseInt(textarea.dataset.photoIndex);
+                    if (report.photos[index]) {
+                        report.photos[index].caption = textarea.value.trim();
+                        scheduleSave();
+                    }
+                }, 1000));
             });
 
             initAutoExpandTextareas();
+        }
+
+        /**
+         * Handle successful photo load - detect orientation and show image
+         */
+        function handlePhotoLoad(index) {
+            const img = document.getElementById(`photo-img-${index}`);
+            const container = document.getElementById(`photo-container-${index}`);
+            const loading = document.getElementById(`photo-loading-${index}`);
+
+            if (!img || !container) return;
+
+            // Hide loading spinner
+            if (loading) loading.style.display = 'none';
+
+            // Detect orientation based on natural dimensions
+            const isPortrait = img.naturalHeight > img.naturalWidth;
+            container.classList.remove('portrait', 'landscape');
+            container.classList.add(isPortrait ? 'portrait' : 'landscape');
+
+            // Show the image
+            img.style.display = 'block';
+        }
+
+        /**
+         * Handle photo load error - show error state
+         */
+        function handlePhotoError(index) {
+            const container = document.getElementById(`photo-container-${index}`);
+            const loading = document.getElementById(`photo-loading-${index}`);
+
+            if (!container) return;
+
+            // Hide loading spinner
+            if (loading) loading.style.display = 'none';
+
+            // Show error message
+            container.innerHTML = `
+                <div class="photo-error">
+                    <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                    <p class="font-medium">Failed to load image</p>
+                    <p class="text-xs mt-1">The photo may be corrupted or missing</p>
+                </div>
+            `;
+        }
+
+        /**
+         * Simple debounce function
+         */
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
 
         // ============ AUTO-SAVE ============
