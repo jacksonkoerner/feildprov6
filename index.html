@@ -506,7 +506,7 @@
                     navigator.geolocation.getCurrentPosition(
                         resolve,
                         reject,
-                        { timeout: 10000, enableHighAccuracy: false, maximumAge: 300000 }
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                     );
                 });
 

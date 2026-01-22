@@ -525,29 +525,33 @@
             const report = getReport();
 
             for (const file of files) {
-                // Get GPS
+                // Get GPS (using multi-reading high accuracy)
                 let gps = null;
                 try {
-                    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
-                    gps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                } catch (e) {}
+                    gps = await getHighAccuracyGPS(true);
+                } catch (err) {
+                    console.warn('[PHOTO] GPS failed:', err);
+                }
 
                 // Read file
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    report.photos.push({
-                        id: `photo_${Date.now()}`,
-                        url: ev.target.result,
-                        caption: '',
-                        timestamp: new Date().toISOString(),
-                        date: new Date().toLocaleDateString(),
-                        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                        gps: gps
-                    });
-                    saveReport(report);
-                    renderContent();
-                };
-                reader.readAsDataURL(file);
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => resolve(ev.target.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                report.photos.push({
+                    id: `photo_${Date.now()}`,
+                    url: dataUrl,
+                    caption: '',
+                    timestamp: new Date().toISOString(),
+                    date: new Date().toLocaleDateString(),
+                    time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                    gps: gps
+                });
+                saveReport(report);
+                renderContent();
             }
         }
 
@@ -639,6 +643,75 @@
             }
 
             return counts;
+        }
+
+        /**
+         * Get high accuracy GPS reading using multi-reading approach
+         * Takes up to 3 readings over ~5 seconds and returns the most accurate one
+         * @param {boolean} showWeakSignalWarning - Whether to show toast warning for weak GPS
+         * @returns {Promise<{lat: number, lng: number, accuracy: number}|null>}
+         */
+        async function getHighAccuracyGPS(showWeakSignalWarning = true) {
+            const gpsOptions = {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0
+            };
+
+            // Function to get a single GPS reading
+            const getSingleReading = () => new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy
+                    }),
+                    () => resolve(null),
+                    gpsOptions
+                );
+            });
+
+            // Take up to 3 readings spaced over ~5 seconds
+            const delays = [0, 1500, 3000];
+
+            const readingPromises = delays.map((delay) =>
+                new Promise((resolve) => {
+                    setTimeout(async () => {
+                        const reading = await getSingleReading();
+                        if (reading) {
+                            console.log(`[GPS] Reading: ${reading.lat.toFixed(6)}, ${reading.lng.toFixed(6)} (±${reading.accuracy.toFixed(0)}m)`);
+                        }
+                        resolve(reading);
+                    }, delay);
+                })
+            );
+
+            // Wait for all readings to complete
+            const results = await Promise.all(readingPromises);
+            const validReadings = results.filter(r => r !== null);
+
+            if (validReadings.length === 0) {
+                console.warn('[GPS] No valid readings obtained');
+                return null;
+            }
+
+            // Find the reading with lowest accuracy value (most precise)
+            const bestReading = validReadings.reduce((best, current) =>
+                (!best || current.accuracy < best.accuracy) ? current : best
+            , null);
+
+            console.log(`[GPS] Best of ${validReadings.length} readings: ±${bestReading.accuracy.toFixed(0)}m`);
+
+            // Warn if accuracy is poor (> 100m)
+            if (showWeakSignalWarning && bestReading.accuracy > 100) {
+                showToast('GPS signal is weak. Photo location may be approximate.');
+            }
+
+            return {
+                lat: bestReading.lat,
+                lng: bestReading.lng,
+                accuracy: Math.round(bestReading.accuracy)
+            };
         }
 
         function showToast(message) {
