@@ -294,7 +294,11 @@
                             <label class="text-xs font-bold text-dot-blue uppercase tracking-wider">Notice to Proceed Date</label>
                             <input type="date" id="noticeToProceed" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-dot-blue">
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-bold text-dot-blue uppercase tracking-wider">Report Date (Sample)</label>
+                            <input type="date" id="reportDate" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-dot-blue">
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
                             <div>
                                 <label class="text-xs font-bold text-dot-blue uppercase tracking-wider">Contract Duration (Days)</label>
                                 <input type="number" id="contractDuration" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-dot-blue" placeholder="e.g., 467">
@@ -302,6 +306,10 @@
                             <div>
                                 <label class="text-xs font-bold text-dot-blue uppercase tracking-wider">Weather Days</label>
                                 <input type="number" id="weatherDays" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-dot-blue" placeholder="0" value="0" min="0">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-dot-blue uppercase tracking-wider">Contract Day #</label>
+                                <input type="number" id="contractDayNo" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-dot-blue" placeholder="e.g., 19">
                             </div>
                         </div>
                         <div>
@@ -540,11 +548,13 @@
                 engineer: '',
                 primeContractor: '',
                 noticeToProceed: '',
+                reportDate: '',
                 contractDuration: '',
                 expectedCompletion: '',
                 defaultStartTime: '06:00',
                 defaultEndTime: '16:00',
                 weatherDays: 0,
+                contractDayNo: '',
                 contractors: [],
                 equipment: []
             };
@@ -581,11 +591,13 @@
             currentProject.engineer = document.getElementById('engineer').value.trim();
             currentProject.primeContractor = document.getElementById('primeContractor').value.trim();
             currentProject.noticeToProceed = document.getElementById('noticeToProceed').value;
+            currentProject.reportDate = document.getElementById('reportDate').value;
             currentProject.contractDuration = parseInt(document.getElementById('contractDuration').value) || '';
             currentProject.expectedCompletion = document.getElementById('expectedCompletion').value;
             currentProject.defaultStartTime = document.getElementById('defaultStartTime').value || '06:00';
             currentProject.defaultEndTime = document.getElementById('defaultEndTime').value || '16:00';
             currentProject.weatherDays = parseInt(document.getElementById('weatherDays').value) || 0;
+            currentProject.contractDayNo = parseInt(document.getElementById('contractDayNo').value) || '';
 
             // Save to projects array
             let projects = getProjects();
@@ -700,11 +712,13 @@
             document.getElementById('engineer').value = currentProject.engineer || '';
             document.getElementById('primeContractor').value = currentProject.primeContractor || '';
             document.getElementById('noticeToProceed').value = currentProject.noticeToProceed || '';
+            document.getElementById('reportDate').value = currentProject.reportDate || '';
             document.getElementById('contractDuration').value = currentProject.contractDuration || '';
             document.getElementById('expectedCompletion').value = currentProject.expectedCompletion || '';
             document.getElementById('defaultStartTime').value = currentProject.defaultStartTime || '06:00';
             document.getElementById('defaultEndTime').value = currentProject.defaultEndTime || '16:00';
             document.getElementById('weatherDays').value = currentProject.weatherDays || 0;
+            document.getElementById('contractDayNo').value = currentProject.contractDayNo || '';
 
             renderContractors();
             renderEquipment();
@@ -1368,11 +1382,13 @@
                 'engineer': 'engineer',
                 'primeContractor': 'primeContractor',
                 'noticeToProceed': 'noticeToProceed',
+                'reportDate': 'reportDate',
                 'contractDuration': 'contractDuration',
                 'expectedCompletion': 'expectedCompletion',
                 'defaultStartTime': 'defaultStartTime',
                 'defaultEndTime': 'defaultEndTime',
-                'weatherDays': 'weatherDays'
+                'weatherDays': 'weatherDays',
+                'contractDayNo': 'contractDayNo'
             };
 
             // Track missing fields
