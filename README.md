@@ -58,6 +58,7 @@
 ├── index.html              # Home dashboard / main entry point with project selection
 ├── quick-interview.html    # Daily report flow (contractor-based DOT field entry)
 ├── report.html             # AI-populated editable report with original notes view
+├── finalreview.html        # Read-only DOT RPR Daily Report viewer for finalized reports
 ├── archives.html           # Report archives with swipe-to-delete functionality
 ├── editor.html             # Photo editor & section-specific editing
 ├── permissions.html        # System setup, permission testing (mic, camera, GPS)
@@ -93,8 +94,9 @@
 |------|-------|---------|
 | `index.html` | ~931 | Dashboard with project selection, active project display, weather, and navigation |
 | `quick-interview.html` | ~3,175 | DOT-compliant report with dual capture modes (Quick Notes minimal or Guided Sections), 12 expandable sections, auto-expanding textareas, contractor-based work entry |
-| `report.html` | ~1,881 | AI-populated editable DOT form with Form View and Original Notes tabs, submit functionality |
-| `archives.html` | ~491 | Report history with swipe-to-delete, date-sorted report list, view/delete past reports |
+| `report.html` | ~1,881 | AI-populated editable DOT form with Form View and Original Notes tabs, Final Review navigation |
+| `finalreview.html` | ~850 | Read-only DOT RPR Daily Report viewer with print/PDF export, professional formatting |
+| `archives.html` | ~491 | Report history with swipe-to-delete, date-sorted report list, view finalized reports |
 | `editor.html` | ~741 | Photo capture with GPS embedding, full-size photo cards with orientation handling, editable captions |
 | `permissions.html` | ~1,596 | Permission testing (mic, camera, GPS), iOS-specific instructions for native dictation |
 | `permission-debug.html` | ~1,074 | Debugging utility for troubleshooting permission issues |
@@ -562,11 +564,27 @@ User clicks "Finish" in quick-interview.html
      │    ├─► Shows when status is 'pending_refine'
      │    └─► "Retry Now" button to re-process
      │
-     ├─► User clicks "Submit"
-     │    ├─► Confirmation modal appears
-     │    └─► Report submitted via n8n webhook
+     └─► User clicks "Final Review" ─► [finalreview.html]
+
+[finalreview.html] Read-only DOT RPR Daily Report viewer
      │
-     └─► Print CSS ensures proper formatting:
+     ├─► Displays finalized report in DOT RPR format
+     │    ├─► Project Overview (2-column layout)
+     │    ├─► Weather Conditions block
+     │    ├─► Daily Work Summary (per-contractor cards)
+     │    ├─► Daily Operations Table (personnel counts)
+     │    ├─► Equipment Utilization Table
+     │    ├─► Issues, Communications, QA/QC, Safety sections
+     │    ├─► Visitors & Remarks section
+     │    ├─► Photo documentation
+     │    └─► Signature block
+     │
+     ├─► Navigation options:
+     │    ├─► "Edit Report" ─► back to report.html
+     │    ├─► "Export PDF" ─► browser print dialog
+     │    └─► "Cancel Report" ─► delete and return to index.html
+     │
+     └─► Print CSS ensures proper DOT formatting:
           ├─► Page breaks at correct locations
           ├─► 8.5" x 11" page format
           ├─► 0.5" margins

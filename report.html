@@ -439,9 +439,9 @@
                     <i class="fas fa-file-pdf"></i>
                     <span class="hidden sm:inline">PDF</span>
                 </button>
-                <button onclick="showSubmitModal()" class="px-3 py-2 bg-safety-green hover:bg-green-700 text-white text-xs font-bold uppercase transition-colors flex items-center gap-1">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                    <span class="hidden sm:inline">Submit</span>
+                <button onclick="goToFinalReview()" class="px-3 py-2 bg-safety-green hover:bg-green-700 text-white text-xs font-bold uppercase transition-colors flex items-center gap-1">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="hidden sm:inline">Final Review</span>
                 </button>
             </div>
         </div>
@@ -2387,9 +2387,23 @@
             return div.innerHTML;
         }
 
-        // ============ SUBMIT ============
+        // ============ FINAL REVIEW ============
+        function goToFinalReview() {
+            // Save the current report before navigating
+            saveReport();
+
+            // Get the report date from URL or current date
+            const params = new URLSearchParams(window.location.search);
+            const dateParam = params.get('date');
+            const reportDateStr = dateParam || new Date().toISOString().split('T')[0];
+
+            // Navigate to final review page
+            window.location.href = `finalreview.html?date=${reportDateStr}`;
+        }
+
         function showSubmitModal() {
-            document.getElementById('submitModal').classList.remove('hidden');
+            // Legacy - redirect to final review
+            goToFinalReview();
         }
 
         function hideSubmitModal() {
@@ -2397,20 +2411,8 @@
         }
 
         function confirmSubmit() {
-            // Save final version
-            report.meta.submitted = true;
-            report.meta.submittedAt = new Date().toISOString();
-            saveReport();
-
-            // Archive the report
-            const key = getReportKey();
-            const timestamp = Date.now();
-            const archiveKey = `${key}_submitted_${timestamp}`;
-            localStorage.setItem(archiveKey, JSON.stringify(report));
-
-            hideSubmitModal();
-            alert('Report submitted successfully!');
-            window.location.href = 'index.html';
+            // Legacy function - kept for backwards compatibility
+            goToFinalReview();
         }
 
         // ============ DEBUG TOOL ============

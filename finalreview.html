@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Final Review - FieldVoice Pro</title>
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
+    <meta name="theme-color" content="#0a1628">
+
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FieldVoice">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dot-navy': '#0a1628',
+                        'dot-blue': '#1e3a5f',
+                        'dot-slate': '#334155',
+                        'dot-orange': '#ea580c',
+                        'dot-yellow': '#f59e0b',
+                        'safety-green': '#16a34a',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+        .header-stripe {
+            background: repeating-linear-gradient(-45deg, #f59e0b, #f59e0b 10px, #0a1628 10px, #0a1628 20px);
+            height: 4px;
+        }
+        /* DOT Section Headers - Green */
+        .section-header {
+            background: #16a34a;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+        .section-header.navy {
+            background: #0a1628;
+        }
+        /* Table styles */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .data-table th {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            color: #64748b;
+        }
+        .data-table td {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            vertical-align: top;
+        }
+        .data-table .totals-row {
+            background: #f8fafc;
+            font-weight: bold;
+        }
+        /* Overview grid */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        .overview-grid .label {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .overview-grid .value {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            color: #1e293b;
+            background: white;
+        }
+        /* Contractor card */
+        .contractor-card {
+            border: 2px solid #e2e8f0;
+            margin-bottom: 1rem;
+            background: white;
+        }
+        .contractor-card.prime {
+            border-color: #16a34a;
+        }
+        .contractor-card.sub {
+            border-color: #1e3a5f;
+        }
+        /* Photo styles */
+        .photo-card {
+            border: 2px solid #e2e8f0;
+            margin-bottom: 1rem;
+            background: white;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .photo-card-image {
+            position: relative;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+        }
+        .photo-card-image img {
+            display: block;
+            max-width: 100%;
+            max-height: 500px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        .photo-card-image.portrait img {
+            max-height: 400px;
+        }
+        .photo-card-image.landscape img {
+            width: 100%;
+            max-height: 350px;
+            object-fit: contain;
+        }
+        /* Print styles */
+        @media print {
+            body {
+                padding: 0;
+                font-size: 10pt;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .section-header {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+            .photo-card {
+                page-break-inside: avoid;
+            }
+            @page {
+                size: 8.5in 11in;
+                margin: 0.5in;
+            }
+        }
+        /* Text section content */
+        .text-content {
+            white-space: pre-wrap;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        .bullet-list {
+            list-style: disc;
+            padding-left: 1.25rem;
+        }
+        .bullet-list li {
+            margin-bottom: 0.25rem;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div class="header-stripe no-print"></div>
+
+    <!-- STICKY HEADER (no-print) -->
+    <header class="sticky top-0 z-50 bg-dot-navy text-white shadow-lg no-print">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a id="editReportLink" href="#" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold uppercase transition-colors flex items-center gap-1">
+                    <i class="fas fa-edit"></i>
+                    <span class="hidden sm:inline">Edit Report</span>
+                </a>
+                <div>
+                    <h1 class="font-bold text-sm uppercase tracking-wide">Final Review</h1>
+                    <p id="headerDate" class="text-xs text-slate-400"></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="exportPDF()" class="px-3 py-2 bg-dot-blue hover:bg-blue-700 text-white text-xs font-bold uppercase transition-colors flex items-center gap-1">
+                    <i class="fas fa-file-pdf"></i>
+                    <span class="hidden sm:inline">Export PDF</span>
+                </button>
+                <button onclick="showCancelModal()" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase transition-colors flex items-center gap-1">
+                    <i class="fas fa-times"></i>
+                    <span class="hidden sm:inline">Cancel</span>
+                </button>
+                <a href="index.html" class="w-10 h-10 flex items-center justify-center border border-slate-600 hover:bg-slate-800 transition-colors" title="Home">
+                    <i class="fas fa-home text-slate-400"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-4xl mx-auto pb-8">
+        <!-- Report Container -->
+        <div id="reportContainer" class="bg-white shadow-lg">
+
+            <!-- REPORT HEADER -->
+            <section class="p-6 border-b-4 border-safety-green">
+                <!-- Project Logo -->
+                <div id="projectLogoContainer" class="hidden mb-4 text-center">
+                    <img id="projectLogo" src="" alt="Project Logo" class="max-h-[80px] object-contain mx-auto">
+                </div>
+
+                <!-- Report Title -->
+                <h1 class="text-2xl font-bold text-center text-dot-navy uppercase tracking-wide">RPR DAILY REPORT</h1>
+                <p id="reportTitleDate" class="text-center text-slate-600 mt-1"></p>
+            </section>
+
+            <!-- 1. PROJECT OVERVIEW SECTION -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Project Overview</span>
+                </div>
+                <div class="p-4">
+                    <!-- 2-Column Grid for Overview -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Left Column -->
+                        <div class="space-y-0">
+                            <div class="overview-grid">
+                                <div class="label">Project Name</div>
+                                <div class="value" id="displayProjectName">--</div>
+
+                                <div class="label">NOAB Project No.</div>
+                                <div class="value" id="displayNoabProjectNo">--</div>
+
+                                <div class="label">CNO Solicitation No.</div>
+                                <div class="value" id="displayCnoSolicitationNo">N/A</div>
+
+                                <div class="label">Notice to Proceed</div>
+                                <div class="value" id="displayNoticeToProceed">--</div>
+
+                                <div class="label">Contract Duration</div>
+                                <div class="value" id="displayContractDuration">--</div>
+
+                                <div class="label">Expected Completion</div>
+                                <div class="value" id="displayExpectedCompletion">--</div>
+
+                                <div class="label">Contract Day #</div>
+                                <div class="value" id="displayContractDay">--</div>
+
+                                <div class="label">Weather Days</div>
+                                <div class="value" id="displayWeatherDays">0</div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="space-y-0">
+                            <div class="overview-grid">
+                                <div class="label">Date</div>
+                                <div class="value" id="displayDate">--</div>
+
+                                <div class="label">Location</div>
+                                <div class="value" id="displayLocation">--</div>
+
+                                <div class="label">Engineer</div>
+                                <div class="value" id="displayEngineer">--</div>
+
+                                <div class="label">Contractor</div>
+                                <div class="value" id="displayContractor">--</div>
+
+                                <div class="label">Start Time</div>
+                                <div class="value" id="displayStartTime">--</div>
+
+                                <div class="label">End Time</div>
+                                <div class="value" id="displayEndTime">--</div>
+
+                                <div class="label">Shift Duration</div>
+                                <div class="value" id="displayShiftDuration">--</div>
+
+                                <div class="label">Completed By</div>
+                                <div class="value" id="displayCompletedBy">--</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Weather Block -->
+                    <div class="mt-4 bg-slate-50 border border-slate-200 p-4">
+                        <h3 class="text-xs font-bold text-slate-600 uppercase mb-3 flex items-center gap-2">
+                            <i class="fas fa-cloud-sun text-dot-blue"></i>
+                            Weather Conditions
+                        </h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div>
+                                <span class="text-xs text-slate-500 uppercase block">High Temp</span>
+                                <span id="displayWeatherHigh" class="font-medium">--</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-500 uppercase block">Low Temp</span>
+                                <span id="displayWeatherLow" class="font-medium">--</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-500 uppercase block">Precipitation</span>
+                                <span id="displayWeatherPrecip" class="font-medium">--</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-500 uppercase block">Condition</span>
+                                <span id="displayWeatherCondition" class="font-medium">--</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-500 uppercase block">Job Site</span>
+                                <span id="displayWeatherJobSite" class="font-medium">--</span>
+                            </div>
+                            <div class="col-span-2 md:col-span-3">
+                                <span class="text-xs text-slate-500 uppercase block">Adverse Conditions</span>
+                                <span id="displayWeatherAdverse" class="font-medium">N/A</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. DAILY WORK SUMMARY SECTION -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2">
+                    <i class="fas fa-hard-hat"></i>
+                    <span>Daily Work Summary</span>
+                </div>
+                <div id="workSummaryContainer" class="p-4">
+                    <!-- Contractor cards will be populated here -->
+                </div>
+            </section>
+
+            <!-- 3. DAILY OPERATIONS TABLE -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2">
+                    <i class="fas fa-users"></i>
+                    <span>Daily Operations</span>
+                </div>
+                <div class="p-4 overflow-x-auto">
+                    <table class="data-table" id="personnelTable">
+                        <thead>
+                            <tr>
+                                <th class="min-w-[100px]">Contractor</th>
+                                <th class="min-w-[80px]">Trade</th>
+                                <th class="w-12 text-center">Super(s)</th>
+                                <th class="w-12 text-center">Foreman</th>
+                                <th class="w-12 text-center">Operator(s)</th>
+                                <th class="w-12 text-center">Laborer(s)</th>
+                                <th class="w-12 text-center">Surveyor(s)</th>
+                                <th class="w-12 text-center">Other(s)</th>
+                                <th class="w-16 text-center">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personnelTableBody">
+                            <!-- Rows will be populated here -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="totals-row">
+                                <td colspan="2" class="text-right font-bold px-2">TOTALS:</td>
+                                <td id="totalSuper" class="text-center">0</td>
+                                <td id="totalForeman" class="text-center">0</td>
+                                <td id="totalOperators" class="text-center">0</td>
+                                <td id="totalLaborers" class="text-center">0</td>
+                                <td id="totalSurveyors" class="text-center">0</td>
+                                <td id="totalOthers" class="text-center">0</td>
+                                <td id="totalAll" class="text-center font-bold">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. MOBILIZED EQUIPMENT & DAILY UTILIZATION -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2">
+                    <i class="fas fa-truck"></i>
+                    <span>Mobilized Equipment & Daily Utilization</span>
+                </div>
+                <div class="p-4 overflow-x-auto">
+                    <table class="data-table" id="equipmentTable">
+                        <thead>
+                            <tr>
+                                <th class="min-w-[120px]">Contractor</th>
+                                <th class="min-w-[200px]">Equipment Type / Model</th>
+                                <th class="w-16 text-center">Qty</th>
+                                <th class="min-w-[120px]">Notes (Status)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="equipmentTableBody">
+                            <!-- Rows will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 5. GENERAL ISSUES; UNFORESEEN CONDITIONS; NOTICES GIVEN -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2 bg-red-700">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>General Issues; Unforeseen Conditions; Notices Given</span>
+                </div>
+                <div class="p-4">
+                    <div id="issuesContent" class="text-content text-slate-700">N/A</div>
+                </div>
+            </section>
+
+            <!-- 6. COMMUNICATIONS WITH THE CONTRACTOR -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2 bg-blue-700">
+                    <i class="fas fa-comments"></i>
+                    <span>Communications with the Contractor</span>
+                </div>
+                <div class="p-4">
+                    <div id="communicationsContent" class="text-content text-slate-700">N/A</div>
+                </div>
+            </section>
+
+            <!-- 7. QA/QC TESTING AND/OR INSPECTIONS -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2 bg-purple-700">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>QA/QC Testing and/or Inspections</span>
+                </div>
+                <div class="p-4">
+                    <div id="qaqcContent" class="text-content text-slate-700">N/A</div>
+                </div>
+            </section>
+
+            <!-- 8. SAFETY REPORT -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2">
+                    <i class="fas fa-hard-hat"></i>
+                    <span>Safety Report</span>
+                </div>
+                <div class="p-4">
+                    <!-- Incident Checkbox Display -->
+                    <div class="flex items-center gap-6 mb-4 text-sm">
+                        <span class="font-bold text-slate-700">Safety Incident Today:</span>
+                        <span id="incidentYes" class="flex items-center gap-1">
+                            <span class="w-5 h-5 border-2 border-slate-400 flex items-center justify-center text-xs font-bold"></span>
+                            Yes
+                        </span>
+                        <span id="incidentNo" class="flex items-center gap-1">
+                            <span class="w-5 h-5 border-2 border-slate-400 flex items-center justify-center text-xs font-bold"></span>
+                            No
+                        </span>
+                    </div>
+                    <div id="safetyContent" class="text-content text-slate-700">N/A</div>
+                </div>
+            </section>
+
+            <!-- 9. VISITORS; DELIVERIES; ADDITIONAL CONTRACT AND/OR CHANGE ORDER ACTIVITIES; OTHER REMARKS -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header flex items-center gap-2 bg-amber-600">
+                    <i class="fas fa-truck-loading"></i>
+                    <span>Visitors; Deliveries; Additional Contract and/or Change Order Activities; Other Remarks</span>
+                </div>
+                <div class="p-4">
+                    <div id="visitorsContent" class="text-content text-slate-700">N/A</div>
+                </div>
+            </section>
+
+            <!-- 10. DAILY PHOTOS -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header navy flex items-center gap-2">
+                    <i class="fas fa-camera"></i>
+                    <span>Daily Photos</span>
+                    <span id="photoCount" class="ml-auto bg-white/20 px-2 py-0.5 rounded text-xs">0 photos</span>
+                </div>
+                <div id="photosContainer" class="p-4">
+                    <!-- Photos will be populated here -->
+                </div>
+            </section>
+
+            <!-- 11. SIGNATURE BLOCK -->
+            <section class="border-b-4 border-slate-200">
+                <div class="section-header navy flex items-center gap-2">
+                    <i class="fas fa-signature"></i>
+                    <span>Certification & Signature</span>
+                </div>
+                <div class="p-4">
+                    <p class="text-xs text-slate-600 mb-4">
+                        I certify that the information contained in this daily report is accurate and complete to the best of my knowledge.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div>
+                            <span class="text-xs text-slate-500 uppercase block">Inspector Name</span>
+                            <span id="displaySignatureName" class="font-medium text-slate-800">--</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-500 uppercase block">Title</span>
+                            <span id="displaySignatureTitle" class="font-medium text-slate-800">--</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-500 uppercase block">Company</span>
+                            <span id="displaySignatureCompany" class="font-medium text-slate-800">--</span>
+                        </div>
+                    </div>
+                    <div class="border-t-2 border-slate-300 pt-4">
+                        <div class="flex items-end gap-4">
+                            <div class="flex-1">
+                                <div class="border-b-2 border-slate-400 h-12"></div>
+                                <p class="text-xs text-slate-500 mt-1">Signature</p>
+                            </div>
+                            <div class="w-32">
+                                <div class="border-b-2 border-slate-400 h-12 flex items-end justify-center pb-1">
+                                    <span id="displaySignatureDate" class="text-sm"></span>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Date</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div><!-- END reportContainer -->
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-dot-navy text-center py-3 mt-auto no-print">
+        <p class="text-[10px] text-slate-500 uppercase tracking-widest">
+            <i class="fas fa-shield-alt mr-1"></i>
+            DOT Compliant Field Documentation System
+        </p>
+    </footer>
+
+    <!-- Cancel Confirmation Modal -->
+    <div id="cancelModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md">
+            <div class="bg-red-600 text-white p-4 text-center">
+                <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                <p class="font-bold uppercase">Cancel Ongoing Report</p>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-slate-600 mb-4">
+                    Are you sure you want to cancel this report? This will <strong>permanently delete</strong> all data for this report date.
+                </p>
+                <p id="cancelReportDate" class="font-bold text-red-600 mb-4"></p>
+                <div class="space-y-2">
+                    <button onclick="confirmCancel()" class="w-full p-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase transition-colors">
+                        <i class="fas fa-trash-alt mr-2"></i>Delete Report
+                    </button>
+                    <button onclick="hideCancelModal()" class="w-full p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors">
+                        Keep Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 no-print"></div>
+
+    <script>
+        // ============ STATE ============
+        let report = null;
+        let activeProject = null;
+        let projectContractors = [];
+        let reportDate = '';
+
+        const PROJECTS_KEY = 'fvp_projects';
+        const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+
+        // ============ INITIALIZATION ============
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get date from URL param
+            const params = new URLSearchParams(window.location.search);
+            reportDate = params.get('date') || new Date().toISOString().split('T')[0];
+
+            // Load project
+            loadActiveProject();
+
+            // Load report data
+            report = loadReport();
+
+            if (!report || !report.overview) {
+                showToast('Report not found', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            // Update edit report link
+            document.getElementById('editReportLink').href = `report.html?date=${reportDate}`;
+
+            // Populate all display fields
+            populateAllFields();
+
+            // Update header date
+            updateHeaderDate();
+        });
+
+        // ============ PROJECT LOADING ============
+        function loadActiveProject() {
+            const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
+            if (!activeId) {
+                activeProject = null;
+                projectContractors = [];
+                return;
+            }
+
+            const projectsJson = localStorage.getItem(PROJECTS_KEY);
+            if (!projectsJson) {
+                activeProject = null;
+                projectContractors = [];
+                return;
+            }
+
+            try {
+                const projects = JSON.parse(projectsJson);
+                activeProject = projects.find(p => p.id === activeId) || null;
+                if (activeProject && activeProject.contractors) {
+                    projectContractors = [...activeProject.contractors].sort((a, b) => {
+                        if (a.type === 'prime' && b.type !== 'prime') return -1;
+                        if (a.type !== 'prime' && b.type === 'prime') return 1;
+                        return 0;
+                    });
+                } else {
+                    projectContractors = [];
+                }
+            } catch (e) {
+                console.error('Failed to load project:', e);
+                activeProject = null;
+                projectContractors = [];
+            }
+        }
+
+        // ============ REPORT LOADING ============
+        function getReportKey() {
+            if (activeProject) {
+                return `fieldvoice_report_${activeProject.id}_${reportDate}`;
+            }
+            return `fieldvoice_report_${reportDate}`;
+        }
+
+        function loadReport() {
+            // Try project-specific key first
+            let key = getReportKey();
+            let saved = localStorage.getItem(key);
+
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {}
+            }
+
+            // Try legacy key
+            const legacyKey = `fieldvoice_report_${reportDate}`;
+            saved = localStorage.getItem(legacyKey);
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {}
+            }
+
+            // Try very old legacy key
+            saved = localStorage.getItem('fieldvoice_report');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {}
+            }
+
+            return null;
+        }
+
+        // ============ DATA PRIORITY HELPERS ============
+        /**
+         * Get value with priority: userEdits > aiGenerated > fieldNotes > defaults
+         */
+        function getValue(path, defaultValue = '') {
+            // Check user edits first
+            if (report.userEdits && report.userEdits[path] !== undefined) {
+                return report.userEdits[path];
+            }
+
+            // Check AI-generated content
+            if (report.aiGenerated) {
+                const aiValue = getNestedValue(report.aiGenerated, path);
+                if (aiValue !== undefined && aiValue !== null && aiValue !== '') {
+                    if (Array.isArray(aiValue)) {
+                        return aiValue.join('\n');
+                    }
+                    return aiValue;
+                }
+            }
+
+            // Check existing report data
+            const reportValue = getNestedValue(report, path);
+            if (reportValue !== undefined && reportValue !== null && reportValue !== '') {
+                if (Array.isArray(reportValue)) {
+                    return reportValue.join('\n');
+                }
+                return reportValue;
+            }
+
+            return defaultValue;
+        }
+
+        function getNestedValue(obj, path) {
+            return path.split('.').reduce((o, k) => (o || {})[k], obj);
+        }
+
+        /**
+         * Get text field value with AI path mapping
+         */
+        function getTextFieldValue(reportPath, aiPath, defaultValue = '') {
+            // Check user edits
+            if (report.userEdits && report.userEdits[reportPath] !== undefined) {
+                return report.userEdits[reportPath];
+            }
+
+            // Check AI-generated
+            if (report.aiGenerated) {
+                const aiValue = getNestedValue(report.aiGenerated, aiPath);
+                if (aiValue !== undefined && aiValue !== null && aiValue !== '') {
+                    if (Array.isArray(aiValue)) {
+                        return aiValue.join('\n');
+                    }
+                    return aiValue;
+                }
+            }
+
+            // Check report
+            const reportValue = getNestedValue(report, reportPath);
+            if (reportValue !== undefined && reportValue !== null && reportValue !== '') {
+                if (Array.isArray(reportValue)) {
+                    return reportValue.join('\n');
+                }
+                return reportValue;
+            }
+
+            return defaultValue;
+        }
+
+        // ============ POPULATE FIELDS ============
+        function populateAllFields() {
+            // Project Logo
+            const logoContainer = document.getElementById('projectLogoContainer');
+            const logoImg = document.getElementById('projectLogo');
+            if (activeProject?.logo) {
+                logoImg.src = activeProject.logo;
+                logoContainer.classList.remove('hidden');
+            }
+
+            // Report Title Date
+            const dateObj = new Date(reportDate + 'T12:00:00');
+            const formattedDate = dateObj.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            document.getElementById('reportTitleDate').textContent = formattedDate;
+
+            // Project Overview - Left Column
+            document.getElementById('displayProjectName').textContent = getValue('overview.projectName', activeProject?.name || '--');
+            document.getElementById('displayNoabProjectNo').textContent = getValue('overview.noabProjectNo', activeProject?.noabProjectNo || '--');
+            document.getElementById('displayCnoSolicitationNo').textContent = getValue('overview.cnoSolicitationNo', 'N/A');
+
+            if (activeProject?.noticeToProceed) {
+                document.getElementById('displayNoticeToProceed').textContent = formatDateDisplay(activeProject.noticeToProceed);
+            }
+            if (activeProject?.contractDuration) {
+                document.getElementById('displayContractDuration').textContent = activeProject.contractDuration + ' days';
+            }
+            if (activeProject?.expectedCompletion) {
+                document.getElementById('displayExpectedCompletion').textContent = formatDateDisplay(activeProject.expectedCompletion);
+            }
+
+            const contractDay = getValue('overview.contractDay', '');
+            if (contractDay && activeProject?.contractDuration) {
+                document.getElementById('displayContractDay').textContent = `Day ${contractDay} of ${activeProject.contractDuration}`;
+            } else if (contractDay) {
+                document.getElementById('displayContractDay').textContent = contractDay;
+            }
+
+            document.getElementById('displayWeatherDays').textContent = getValue('overview.weatherDays', activeProject?.weatherDays || '0') + ' days';
+
+            // Project Overview - Right Column
+            document.getElementById('displayDate').textContent = formattedDate;
+            document.getElementById('displayLocation').textContent = getValue('overview.location', activeProject?.location || '--');
+            document.getElementById('displayEngineer').textContent = getValue('overview.engineer', activeProject?.engineer || '--');
+            document.getElementById('displayContractor').textContent = getValue('overview.contractor', activeProject?.primeContractor || '--');
+
+            const startTime = getValue('overview.startTime', '');
+            const endTime = getValue('overview.endTime', '');
+            document.getElementById('displayStartTime').textContent = formatTimeDisplay(startTime);
+            document.getElementById('displayEndTime').textContent = formatTimeDisplay(endTime);
+            document.getElementById('displayShiftDuration').textContent = calculateShiftDuration(startTime, endTime);
+
+            document.getElementById('displayCompletedBy').textContent = getValue('overview.completedBy', '--');
+
+            // Weather
+            document.getElementById('displayWeatherHigh').textContent = getValue('overview.weather.highTemp', '--');
+            document.getElementById('displayWeatherLow').textContent = getValue('overview.weather.lowTemp', '--');
+            document.getElementById('displayWeatherPrecip').textContent = getValue('overview.weather.precipitation', '--');
+            document.getElementById('displayWeatherCondition').textContent = getValue('overview.weather.generalCondition', '--');
+            document.getElementById('displayWeatherJobSite').textContent = getValue('overview.weather.jobSiteCondition', '--');
+            document.getElementById('displayWeatherAdverse').textContent = getValue('overview.weather.adverseConditions', 'N/A') || 'N/A';
+
+            // Text Sections
+            const issues = getTextFieldValue('issues', 'generalIssues', report.guidedNotes?.issues || '');
+            document.getElementById('issuesContent').innerHTML = formatTextContent(issues);
+
+            const communications = getTextFieldValue('communications', 'contractorCommunications', '');
+            document.getElementById('communicationsContent').innerHTML = formatTextContent(communications);
+
+            const qaqc = getTextFieldValue('qaqc', 'qaqcNotes', '');
+            document.getElementById('qaqcContent').innerHTML = formatTextContent(qaqc);
+
+            const safetyNotes = getTextFieldValue('safety.notes', 'safety.notes', report.guidedNotes?.safety || '');
+            document.getElementById('safetyContent').innerHTML = formatTextContent(safetyNotes);
+
+            // Safety Incident Checkboxes
+            const hasIncident = getValue('safety.hasIncident', false);
+            const yesBox = document.querySelector('#incidentYes span');
+            const noBox = document.querySelector('#incidentNo span');
+            if (hasIncident) {
+                yesBox.textContent = 'X';
+                noBox.textContent = '';
+            } else {
+                yesBox.textContent = '';
+                noBox.textContent = 'X';
+            }
+
+            const visitors = getTextFieldValue('visitors', 'visitorsRemarks', '');
+            document.getElementById('visitorsContent').innerHTML = formatTextContent(visitors);
+
+            // Signature
+            document.getElementById('displaySignatureName').textContent = getValue('signature.name', '--');
+            document.getElementById('displaySignatureTitle').textContent = getValue('signature.title', '--');
+            document.getElementById('displaySignatureCompany').textContent = getValue('signature.company', '--');
+            document.getElementById('displaySignatureDate').textContent = formattedDate;
+
+            // Render dynamic sections
+            renderWorkSummary();
+            renderPersonnelTable();
+            renderEquipmentTable();
+            renderPhotos();
+        }
+
+        // ============ FORMAT HELPERS ============
+        function formatDateDisplay(isoDate) {
+            if (!isoDate) return '--';
+            const date = new Date(isoDate + 'T12:00:00');
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function formatTimeDisplay(time24) {
+            if (!time24) return '--';
+            const [hours, minutes] = time24.split(':');
+            const h = parseInt(hours);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${minutes} ${ampm}`;
+        }
+
+        function calculateShiftDuration(startTime, endTime) {
+            if (!startTime || !endTime) return '--';
+            const start = new Date(`2000-01-01T${startTime}`);
+            const end = new Date(`2000-01-01T${endTime}`);
+            let diffMs = end - start;
+            if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            if (minutes > 0) return `${hours}h ${minutes}m`;
+            return `${hours} hours`;
+        }
+
+        function formatTextContent(text) {
+            if (!text || text.trim() === '') return 'N/A';
+            // Check if it looks like bullet points (lines starting with - or *)
+            const lines = text.split('\n').filter(l => l.trim());
+            if (lines.length > 1 && lines.every(l => l.trim().startsWith('-') || l.trim().startsWith('*') || l.trim().startsWith('•'))) {
+                const listItems = lines.map(l => `<li>${escapeHtml(l.replace(/^[-*•]\s*/, ''))}</li>`).join('');
+                return `<ul class="bullet-list">${listItems}</ul>`;
+            }
+            return escapeHtml(text);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ============ RENDER WORK SUMMARY ============
+        function renderWorkSummary() {
+            const container = document.getElementById('workSummaryContainer');
+
+            if (projectContractors.length === 0) {
+                // Show simplified work summary
+                const workSummary = getValue('guidedNotes.workSummary', '');
+                if (workSummary) {
+                    container.innerHTML = `
+                        <div class="p-4 bg-slate-50 border border-slate-200">
+                            <p class="text-xs font-bold text-slate-500 uppercase mb-2">Work Summary</p>
+                            <div class="text-content text-slate-700">${escapeHtml(workSummary)}</div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `<p class="text-slate-500 text-center py-4">No work activities documented.</p>`;
+                }
+                return;
+            }
+
+            // Render contractor cards
+            let html = '';
+            projectContractors.forEach(contractor => {
+                const activity = getContractorActivity(contractor.id);
+                const noWork = activity?.noWork ?? true;
+                const narrative = activity?.narrative || '';
+                const equipment = activity?.equipmentUsed || '';
+                const crew = activity?.crew || '';
+
+                const typeLabel = contractor.type === 'prime' ? 'PRIME' : 'SUB';
+                const badgeBg = contractor.type === 'prime' ? 'bg-safety-green' : 'bg-dot-blue';
+                const cardClass = contractor.type === 'prime' ? 'prime' : 'sub';
+
+                html += `
+                    <div class="contractor-card ${cardClass}">
+                        <div class="p-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <span class="${badgeBg} text-white text-[10px] font-bold px-2 py-0.5 uppercase">${typeLabel}</span>
+                                <span class="font-bold text-slate-800">${escapeHtml(contractor.name)}</span>
+                                ${contractor.trades ? `<span class="text-xs text-slate-500">(${escapeHtml(contractor.trades)})</span>` : ''}
+                            </div>
+                            ${noWork && !narrative ?
+                                `<p class="text-slate-500 italic">No work performed on ${formatDateDisplay(reportDate)}</p>` :
+                                `<div class="text-content text-slate-700 mb-3">${escapeHtml(narrative) || 'N/A'}</div>
+                                ${equipment ? `<p class="text-sm text-slate-600"><strong>Equipment:</strong> ${escapeHtml(equipment)}</p>` : ''}
+                                ${crew ? `<p class="text-sm text-slate-600"><strong>Crew:</strong> ${escapeHtml(crew)}</p>` : ''}`
+                            }
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function getContractorActivity(contractorId) {
+            // Check user edits
+            const userEditKey = `activity_${contractorId}`;
+            if (report.userEdits && report.userEdits[userEditKey]) {
+                return report.userEdits[userEditKey];
+            }
+
+            // Check AI-generated
+            if (report.aiGenerated?.activities) {
+                const aiActivity = report.aiGenerated.activities.find(a => a.contractorId === contractorId);
+                if (aiActivity) {
+                    return {
+                        contractorId: contractorId,
+                        noWork: aiActivity.noWork ?? false,
+                        narrative: aiActivity.narrative || '',
+                        equipmentUsed: aiActivity.equipmentUsed || '',
+                        crew: aiActivity.crew || ''
+                    };
+                }
+            }
+
+            // Fall back to report.activities
+            if (report.activities) {
+                return report.activities.find(a => a.contractorId === contractorId);
+            }
+            return null;
+        }
+
+        // ============ RENDER PERSONNEL TABLE ============
+        function renderPersonnelTable() {
+            const tbody = document.getElementById('personnelTableBody');
+
+            if (projectContractors.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center text-slate-400 py-4">
+                            No contractors defined.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let totals = { super: 0, foreman: 0, operators: 0, laborers: 0, surveyors: 0, others: 0, all: 0 };
+
+            const rows = projectContractors.map(contractor => {
+                const ops = getContractorOperations(contractor.id);
+                const supers = ops?.superintendents || 0;
+                const foremen = ops?.foremen || 0;
+                const operators = ops?.operators || 0;
+                const laborers = ops?.laborers || 0;
+                const surveyors = ops?.surveyors || 0;
+                const others = ops?.others || 0;
+                const rowTotal = supers + foremen + operators + laborers + surveyors + others;
+
+                totals.super += supers;
+                totals.foreman += foremen;
+                totals.operators += operators;
+                totals.laborers += laborers;
+                totals.surveyors += surveyors;
+                totals.others += others;
+                totals.all += rowTotal;
+
+                return `
+                    <tr>
+                        <td class="font-medium text-xs">${escapeHtml(contractor.abbreviation || contractor.name)}</td>
+                        <td class="text-xs">${escapeHtml(contractor.trades || '-')}</td>
+                        <td class="text-center">${supers || '-'}</td>
+                        <td class="text-center">${foremen || '-'}</td>
+                        <td class="text-center">${operators || '-'}</td>
+                        <td class="text-center">${laborers || '-'}</td>
+                        <td class="text-center">${surveyors || '-'}</td>
+                        <td class="text-center">${others || '-'}</td>
+                        <td class="text-center font-bold">${rowTotal || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            tbody.innerHTML = rows;
+
+            // Update totals
+            document.getElementById('totalSuper').textContent = totals.super || '-';
+            document.getElementById('totalForeman').textContent = totals.foreman || '-';
+            document.getElementById('totalOperators').textContent = totals.operators || '-';
+            document.getElementById('totalLaborers').textContent = totals.laborers || '-';
+            document.getElementById('totalSurveyors').textContent = totals.surveyors || '-';
+            document.getElementById('totalOthers').textContent = totals.others || '-';
+            document.getElementById('totalAll').textContent = totals.all || '-';
+        }
+
+        function getContractorOperations(contractorId) {
+            // Check user edits
+            const userEditKey = `operations_${contractorId}`;
+            if (report.userEdits && report.userEdits[userEditKey]) {
+                return report.userEdits[userEditKey];
+            }
+
+            // Check AI-generated
+            if (report.aiGenerated?.operations) {
+                const aiOps = report.aiGenerated.operations.find(o => o.contractorId === contractorId);
+                if (aiOps) return aiOps;
+            }
+
+            // Fall back to report.operations
+            if (report.operations) {
+                return report.operations.find(o => o.contractorId === contractorId);
+            }
+            return null;
+        }
+
+        // ============ RENDER EQUIPMENT TABLE ============
+        function renderEquipmentTable() {
+            const tbody = document.getElementById('equipmentTableBody');
+            const equipmentData = getEquipmentData();
+
+            if (equipmentData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-slate-400 py-4">
+                            No equipment documented.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const rows = equipmentData.map(item => {
+                const contractor = projectContractors.find(c => c.id === item.contractorId);
+                const contractorName = contractor ? (contractor.abbreviation || contractor.name) : '--';
+                const status = item.status === 'IDLE' ? 'IDLE' : item.status || 'IDLE';
+
+                return `
+                    <tr>
+                        <td class="text-xs">${escapeHtml(contractorName)}</td>
+                        <td class="text-xs">${escapeHtml(item.type || '--')}</td>
+                        <td class="text-center">${item.qty || 1}</td>
+                        <td class="text-xs ${status === 'IDLE' ? 'text-slate-500 italic' : 'text-safety-green font-medium'}">${status}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            tbody.innerHTML = rows;
+        }
+
+        function getEquipmentData() {
+            if (report.equipment && report.equipment.length > 0) {
+                return report.equipment;
+            }
+
+            if (report.aiGenerated?.equipment && report.aiGenerated.equipment.length > 0) {
+                return report.aiGenerated.equipment.map(item => ({
+                    contractorId: item.contractorId || '',
+                    type: item.type || '',
+                    qty: item.qty || item.quantity || 1,
+                    status: item.status || (item.hoursUsed ? `${item.hoursUsed} hrs` : 'IDLE')
+                }));
+            }
+
+            return [];
+        }
+
+        // ============ RENDER PHOTOS ============
+        function renderPhotos() {
+            const container = document.getElementById('photosContainer');
+            const photos = report.photos || [];
+            const totalPhotos = photos.length;
+
+            document.getElementById('photoCount').textContent = `${totalPhotos} photo${totalPhotos !== 1 ? 's' : ''}`;
+
+            if (totalPhotos === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-slate-400 py-8">
+                        <i class="fas fa-images text-4xl mb-2"></i>
+                        <p class="text-sm">No photos captured</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = photos.map((photo, index) => {
+                const photoNum = index + 1;
+                const dateStr = photo.date || '--';
+                const timeStr = photo.time || '--';
+                const gpsStr = photo.gps
+                    ? `${photo.gps.lat.toFixed(5)}, ${photo.gps.lng.toFixed(5)}`
+                    : null;
+
+                return `
+                    <div class="photo-card">
+                        <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
+                            <span class="text-xs font-bold text-slate-600 uppercase">Photo ${photoNum} of ${totalPhotos}</span>
+                        </div>
+                        <div class="photo-card-image" id="photo-container-${index}">
+                            <img
+                                src="${photo.url}"
+                                alt="Progress photo ${photoNum}"
+                                onload="handlePhotoLoad(${index})"
+                                onerror="handlePhotoError(${index})"
+                            >
+                        </div>
+                        <div class="p-4 border-t border-slate-200 bg-slate-50">
+                            <div class="flex flex-wrap gap-4 text-xs text-slate-600 mb-2">
+                                <span><i class="fas fa-calendar-alt mr-1"></i>${dateStr}</span>
+                                <span><i class="fas fa-clock mr-1"></i>${timeStr}</span>
+                                ${gpsStr ? `<span><i class="fas fa-map-marker-alt mr-1"></i>${gpsStr}</span>` : ''}
+                            </div>
+                            ${photo.caption ? `<p class="text-sm text-slate-700">${escapeHtml(photo.caption)}</p>` : '<p class="text-sm text-slate-400 italic">No caption</p>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function handlePhotoLoad(index) {
+            const img = document.querySelector(`#photo-container-${index} img`);
+            const container = document.getElementById(`photo-container-${index}`);
+            if (!img || !container) return;
+
+            const isPortrait = img.naturalHeight > img.naturalWidth;
+            container.classList.remove('portrait', 'landscape');
+            container.classList.add(isPortrait ? 'portrait' : 'landscape');
+        }
+
+        function handlePhotoError(index) {
+            const container = document.getElementById(`photo-container-${index}`);
+            if (!container) return;
+            container.innerHTML = `
+                <div class="p-8 text-center text-slate-400">
+                    <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                    <p class="text-sm">Failed to load image</p>
+                </div>
+            `;
+        }
+
+        // ============ UI HELPERS ============
+        function updateHeaderDate() {
+            const dateObj = new Date(reportDate + 'T12:00:00');
+            const dateStr = dateObj.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            document.getElementById('headerDate').textContent = dateStr;
+        }
+
+        // ============ CANCEL MODAL ============
+        function showCancelModal() {
+            const dateObj = new Date(reportDate + 'T12:00:00');
+            const formattedDate = dateObj.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+            });
+            document.getElementById('cancelReportDate').textContent = formattedDate;
+            document.getElementById('cancelModal').classList.remove('hidden');
+        }
+
+        function hideCancelModal() {
+            document.getElementById('cancelModal').classList.add('hidden');
+        }
+
+        function confirmCancel() {
+            // Delete report from localStorage
+            const key = getReportKey();
+            localStorage.removeItem(key);
+
+            // Also remove legacy key if it matches
+            const legacyKey = `fieldvoice_report_${reportDate}`;
+            localStorage.removeItem(legacyKey);
+
+            // Check if legacy report matches this date
+            const legacyReport = localStorage.getItem('fieldvoice_report');
+            if (legacyReport) {
+                try {
+                    const parsed = JSON.parse(legacyReport);
+                    const legacyDate = parsed.overview?.date;
+                    if (legacyDate) {
+                        const d = new Date(legacyDate);
+                        if (d.toISOString().split('T')[0] === reportDate) {
+                            localStorage.removeItem('fieldvoice_report');
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            showToast('Report deleted', 'success');
+            hideCancelModal();
+            setTimeout(() => window.location.href = 'index.html', 1500);
+        }
+
+        // ============ EXPORT PDF ============
+        function exportPDF() {
+            window.print();
+        }
+
+        // ============ TOAST ============
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-safety-green',
+                error: 'bg-red-600',
+                warning: 'bg-dot-orange',
+                info: 'bg-dot-blue'
+            };
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 mb-2 transform translate-x-full transition-transform duration-300`;
+            toast.innerHTML = `<i class="fas ${icons[type]}"></i><span class="font-bold text-sm">${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+
+    <!-- PWA Navigation Fix -->
+    <script>
+        (function() {
+            if (window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches) {
+                document.addEventListener('click', function(e) {
+                    const link = e.target.closest('a');
+                    if (link && link.href && link.href.startsWith(window.location.origin)) {
+                        e.preventDefault();
+                        window.location.href = link.href;
+                    }
+                }, true);
+            }
+        })();
+    </script>
+
+    <!-- PWA Service Worker Registration & Offline Banner -->
+    <div id="offline-banner" class="fixed top-0 left-0 right-0 bg-yellow-500 text-yellow-900 text-center py-2 px-4 font-bold text-sm z-[9999] transform -translate-y-full transition-transform duration-300 no-print" style="display: none;">
+        <i class="fas fa-wifi-slash mr-2"></i>You are offline - Some features may be unavailable
+    </div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('[PWA] Service Worker registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('[PWA] Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        const offlineBanner = document.getElementById('offline-banner');
+        function showOfflineBanner() {
+            if (offlineBanner) {
+                offlineBanner.style.display = 'block';
+                setTimeout(() => offlineBanner.style.transform = 'translateY(0)', 10);
+            }
+        }
+        function hideOfflineBanner() {
+            if (offlineBanner) {
+                offlineBanner.style.transform = 'translateY(-100%)';
+                setTimeout(() => offlineBanner.style.display = 'none', 300);
+            }
+        }
+        window.addEventListener('online', hideOfflineBanner);
+        window.addEventListener('offline', showOfflineBanner);
+        if (!navigator.onLine) showOfflineBanner();
+    </script>
+</body>
+</html>
