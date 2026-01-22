@@ -394,31 +394,83 @@
                 <span>Project Overview</span>
             </div>
             <div class="p-4 space-y-4">
-                <!-- Project Info Grid -->
+                <!-- Project Logo (display only) -->
+                <div id="projectLogoContainer" class="hidden mb-4">
+                    <img id="projectLogo" src="" alt="Project Logo" class="max-h-[60px] object-contain">
+                </div>
+
+                <!-- DOT RPR Daily Report Style 2-Column Grid -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Project Name</label>
-                        <input type="text" id="projectName" class="editable-field w-full px-3 py-2 text-sm" placeholder="Enter project name">
+                    <!-- Left Column -->
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Project Name</label>
+                            <input type="text" id="projectName" class="editable-field w-full px-3 py-2 text-sm" placeholder="Enter project name">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">NOAB Project No.</label>
+                            <input type="text" id="noabProjectNo" class="editable-field w-full px-3 py-2 text-sm" placeholder="e.g., 1291">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">CNO Solicitation No.</label>
+                            <input type="text" id="cnoSolicitationNo" class="editable-field w-full px-3 py-2 text-sm" placeholder="N/A" value="N/A">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Notice to Proceed</label>
+                            <input type="date" id="noticeToProceed" class="editable-field w-full px-3 py-2 text-sm bg-slate-50" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Contract Duration</label>
+                            <input type="text" id="contractDuration" class="editable-field w-full px-3 py-2 text-sm bg-slate-50" placeholder="-- days" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Expected Completion</label>
+                            <input type="date" id="expectedCompletion" class="editable-field w-full px-3 py-2 text-sm bg-slate-50" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Contract Day #</label>
+                            <input type="text" id="contractDay" class="editable-field w-full px-3 py-2 text-sm" placeholder="e.g., Day 19 of 467">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Weather Days</label>
+                            <input type="number" id="weatherDaysCount" class="editable-field w-full px-3 py-2 text-sm" placeholder="0" min="0">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Project Number</label>
-                        <input type="text" id="projectNumber" class="editable-field w-full px-3 py-2 text-sm" placeholder="e.g., 2024-DOT-001">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Location</label>
-                        <input type="text" id="projectLocation" class="editable-field w-full px-3 py-2 text-sm" placeholder="Enter location">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                        <input type="date" id="reportDate" class="editable-field w-full px-3 py-2 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Contract Day #</label>
-                        <input type="number" id="contractDay" class="editable-field w-full px-3 py-2 text-sm" placeholder="e.g., 45">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Completed By</label>
-                        <input type="text" id="completedBy" class="editable-field w-full px-3 py-2 text-sm" placeholder="Your name">
+
+                    <!-- Right Column -->
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
+                            <input type="date" id="reportDate" class="editable-field w-full px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Location</label>
+                            <input type="text" id="projectLocation" class="editable-field w-full px-3 py-2 text-sm" placeholder="Enter location">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Engineer</label>
+                            <input type="text" id="engineer" class="editable-field w-full px-3 py-2 text-sm" placeholder="Enter engineer firm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Contractor</label>
+                            <input type="text" id="contractor" class="editable-field w-full px-3 py-2 text-sm" placeholder="Enter prime contractor">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Start Time</label>
+                            <input type="time" id="startTime" class="editable-field w-full px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">End Time</label>
+                            <input type="time" id="endTime" class="editable-field w-full px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Shift Duration</label>
+                            <input type="text" id="shiftDuration" class="editable-field w-full px-3 py-2 text-sm bg-slate-50" placeholder="-- hours" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Completed By</label>
+                            <input type="text" id="completedBy" class="editable-field w-full px-3 py-2 text-sm" placeholder="Your name">
+                        </div>
                     </div>
                 </div>
 
@@ -1014,14 +1066,20 @@
             return {
                 meta: {
                     createdAt: new Date().toISOString(),
-                    version: 3
+                    version: 4
                 },
                 overview: {
                     projectName: activeProject?.name || '',
-                    projectNumber: activeProject?.projectNumber || '',
+                    noabProjectNo: activeProject?.noabProjectNo || '',
+                    cnoSolicitationNo: activeProject?.cnoSolicitationNo || 'N/A',
                     location: activeProject?.location || '',
                     date: new Date().toLocaleDateString(),
-                    contractDay: '',
+                    contractDay: activeProject?.contractDayNo || '',
+                    weatherDays: activeProject?.weatherDays || 0,
+                    engineer: activeProject?.engineer || '',
+                    contractor: activeProject?.primeContractor || '',
+                    startTime: activeProject?.defaultStartTime || '06:00',
+                    endTime: activeProject?.defaultEndTime || '16:00',
                     completedBy: '',
                     weather: {
                         highTemp: '',
@@ -1160,11 +1218,52 @@
 
         // ============ POPULATE FIELDS ============
         function populateAllFields() {
-            // Project Overview
-            document.getElementById('projectName').value = getValue('overview.projectName', activeProject?.name || '');
-            document.getElementById('projectNumber').value = getValue('overview.projectNumber', activeProject?.projectNumber || '');
-            document.getElementById('projectLocation').value = getValue('overview.location', activeProject?.location || '');
+            // Display project logo if exists
+            const logoContainer = document.getElementById('projectLogoContainer');
+            const logoImg = document.getElementById('projectLogo');
+            if (activeProject?.logo) {
+                logoImg.src = activeProject.logo;
+                logoContainer.classList.remove('hidden');
+            } else {
+                logoContainer.classList.add('hidden');
+            }
 
+            // Project Overview - Left Column
+            document.getElementById('projectName').value = getValue('overview.projectName', activeProject?.name || '');
+            document.getElementById('noabProjectNo').value = getValue('overview.noabProjectNo', activeProject?.noabProjectNo || '');
+            document.getElementById('cnoSolicitationNo').value = getValue('overview.cnoSolicitationNo', activeProject?.cnoSolicitationNo || 'N/A');
+
+            // Notice to Proceed (display only from project config)
+            const ntpInput = document.getElementById('noticeToProceed');
+            if (activeProject?.noticeToProceed) {
+                ntpInput.value = activeProject.noticeToProceed;
+            }
+
+            // Contract Duration (display only)
+            const durationInput = document.getElementById('contractDuration');
+            if (activeProject?.contractDuration) {
+                durationInput.value = activeProject.contractDuration + ' days';
+            }
+
+            // Expected Completion (display only from project config)
+            const expectedInput = document.getElementById('expectedCompletion');
+            if (activeProject?.expectedCompletion) {
+                expectedInput.value = activeProject.expectedCompletion;
+            }
+
+            // Contract Day (editable, format as "Day X of Y")
+            const contractDayValue = getValue('overview.contractDay', activeProject?.contractDayNo || '');
+            const contractDayInput = document.getElementById('contractDay');
+            if (contractDayValue && activeProject?.contractDuration) {
+                contractDayInput.value = `Day ${contractDayValue} of ${activeProject.contractDuration}`;
+            } else if (contractDayValue) {
+                contractDayInput.value = contractDayValue;
+            }
+
+            // Weather Days (editable)
+            document.getElementById('weatherDaysCount').value = getValue('overview.weatherDays', activeProject?.weatherDays || 0);
+
+            // Project Overview - Right Column
             // Date
             const dateStr = getValue('overview.date', new Date().toLocaleDateString());
             const dateInput = document.getElementById('reportDate');
@@ -1175,7 +1274,17 @@
                 dateInput.value = new Date().toISOString().split('T')[0];
             }
 
-            document.getElementById('contractDay').value = getValue('overview.contractDay', '');
+            document.getElementById('projectLocation').value = getValue('overview.location', activeProject?.location || '');
+            document.getElementById('engineer').value = getValue('overview.engineer', activeProject?.engineer || '');
+            document.getElementById('contractor').value = getValue('overview.contractor', activeProject?.primeContractor || '');
+
+            // Start/End Time (editable, defaults from project config)
+            document.getElementById('startTime').value = getValue('overview.startTime', activeProject?.defaultStartTime || '06:00');
+            document.getElementById('endTime').value = getValue('overview.endTime', activeProject?.defaultEndTime || '16:00');
+
+            // Calculate and display shift duration
+            calculateShiftDuration();
+
             document.getElementById('completedBy').value = getValue('overview.completedBy', '');
 
             // Weather
@@ -1218,6 +1327,34 @@
             markUserEditedFields();
         }
 
+        function calculateShiftDuration() {
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            const durationInput = document.getElementById('shiftDuration');
+
+            if (startTime && endTime) {
+                const start = new Date(`2000-01-01T${startTime}`);
+                const end = new Date(`2000-01-01T${endTime}`);
+                let diffMs = end - start;
+
+                // Handle overnight shifts
+                if (diffMs < 0) {
+                    diffMs += 24 * 60 * 60 * 1000;
+                }
+
+                const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                if (minutes > 0) {
+                    durationInput.value = `${hours}h ${minutes}m`;
+                } else {
+                    durationInput.value = `${hours} hours`;
+                }
+            } else {
+                durationInput.value = '';
+            }
+        }
+
         function markUserEditedFields() {
             Object.keys(userEdits).forEach(path => {
                 const fieldId = pathToFieldId(path);
@@ -1232,9 +1369,15 @@
             // Convert paths like 'overview.projectName' to 'projectName'
             const mapping = {
                 'overview.projectName': 'projectName',
-                'overview.projectNumber': 'projectNumber',
+                'overview.noabProjectNo': 'noabProjectNo',
+                'overview.cnoSolicitationNo': 'cnoSolicitationNo',
                 'overview.location': 'projectLocation',
                 'overview.contractDay': 'contractDay',
+                'overview.weatherDays': 'weatherDaysCount',
+                'overview.engineer': 'engineer',
+                'overview.contractor': 'contractor',
+                'overview.startTime': 'startTime',
+                'overview.endTime': 'endTime',
                 'overview.completedBy': 'completedBy',
                 'overview.weather.highTemp': 'weatherHigh',
                 'overview.weather.lowTemp': 'weatherLow',
@@ -1862,10 +2005,16 @@
             // Field mappings for auto-save
             const fieldMappings = {
                 'projectName': 'overview.projectName',
-                'projectNumber': 'overview.projectNumber',
+                'noabProjectNo': 'overview.noabProjectNo',
+                'cnoSolicitationNo': 'overview.cnoSolicitationNo',
                 'projectLocation': 'overview.location',
                 'reportDate': 'overview.date',
                 'contractDay': 'overview.contractDay',
+                'weatherDaysCount': 'overview.weatherDays',
+                'engineer': 'overview.engineer',
+                'contractor': 'overview.contractor',
+                'startTime': 'overview.startTime',
+                'endTime': 'overview.endTime',
                 'completedBy': 'overview.completedBy',
                 'weatherHigh': 'overview.weather.highTemp',
                 'weatherLow': 'overview.weather.lowTemp',
@@ -1895,6 +2044,14 @@
                     field.classList.add('user-edited');
                     scheduleSave();
                 });
+            });
+
+            // Recalculate shift duration when start/end time changes
+            ['startTime', 'endTime'].forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('change', calculateShiftDuration);
+                }
             });
 
             // Safety incident toggle
