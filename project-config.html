@@ -118,6 +118,55 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        /* Logo Upload Styles */
+        .logo-drop-zone {
+            border: 2px dashed #94a3b8;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+        .logo-drop-zone.drag-active {
+            border-color: #ea580c;
+            background-color: #fff7ed;
+            transform: scale(1.01);
+        }
+        .logo-drop-zone:hover {
+            border-color: #64748b;
+            background-color: #f1f5f9;
+        }
+        .logo-preview-container {
+            position: relative;
+            display: inline-block;
+        }
+        .logo-preview-container img {
+            max-height: 150px;
+            max-width: 100%;
+            object-fit: contain;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }
+        .logo-remove-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #dc2626;
+            color: white;
+            border: 2px solid white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: background 0.2s;
+        }
+        .logo-remove-btn:hover {
+            background: #b91c1c;
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
@@ -252,6 +301,24 @@
                         </h2>
                     </div>
                     <div class="p-4 space-y-4">
+                        <!-- Project Logo Upload -->
+                        <div>
+                            <label class="text-xs font-bold text-dot-blue uppercase tracking-wider">Project Logo</label>
+                            <div id="logoUploadZone" class="logo-drop-zone mt-2 p-4 text-center" onclick="document.getElementById('logoInput').click()">
+                                <input type="file" id="logoInput" class="hidden" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif" onchange="handleLogoSelect(event)">
+                                <i class="fas fa-image text-2xl text-slate-400 mb-2"></i>
+                                <p class="text-xs text-slate-600">Drag & drop or click to upload</p>
+                                <p class="text-xs text-slate-400 mt-1">PNG, JPG, SVG, GIF</p>
+                            </div>
+                            <div id="logoPreviewArea" class="hidden mt-2">
+                                <div class="logo-preview-container">
+                                    <img id="logoPreviewImg" src="" alt="Project Logo">
+                                    <button type="button" onclick="removeLogo()" class="logo-remove-btn" title="Remove logo">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <div>
                             <label class="text-xs font-bold text-dot-blue uppercase tracking-wider">Project Name <span class="text-red-500">*</span></label>
                             <input type="text" id="projectName" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-dot-blue" placeholder="e.g., I-10 Bridge Reconstruction">
@@ -542,6 +609,7 @@
             currentProject = {
                 id: generateId('proj'),
                 name: '',
+                logo: null,
                 noabProjectNo: '',
                 cnoSolicitationNo: 'N/A',
                 location: '',
@@ -585,6 +653,7 @@
 
             // Update current project from form
             currentProject.name = name;
+            currentProject.logo = currentProject.logo || null;
             currentProject.noabProjectNo = document.getElementById('noabProjectNo').value.trim();
             currentProject.cnoSolicitationNo = document.getElementById('cnoSolicitationNo').value.trim() || 'N/A';
             currentProject.location = document.getElementById('location').value.trim();
@@ -719,6 +788,21 @@
             document.getElementById('defaultEndTime').value = currentProject.defaultEndTime || '16:00';
             document.getElementById('weatherDays').value = currentProject.weatherDays || 0;
             document.getElementById('contractDayNo').value = currentProject.contractDayNo || '';
+
+            // Handle logo preview
+            const logoUploadZone = document.getElementById('logoUploadZone');
+            const logoPreviewArea = document.getElementById('logoPreviewArea');
+            const logoPreviewImg = document.getElementById('logoPreviewImg');
+
+            if (currentProject.logo) {
+                logoPreviewImg.src = currentProject.logo;
+                logoUploadZone.classList.add('hidden');
+                logoPreviewArea.classList.remove('hidden');
+            } else {
+                logoUploadZone.classList.remove('hidden');
+                logoPreviewArea.classList.add('hidden');
+                logoPreviewImg.src = '';
+            }
 
             renderContractors();
             renderEquipment();
@@ -1274,6 +1358,99 @@
             renderFileList();
         }
 
+        // ============ LOGO UPLOAD FUNCTIONS ============
+        function handleLogoSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate it's an image
+            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/gif'];
+            if (!validTypes.includes(file.type)) {
+                showToast('Please select a valid image file (PNG, JPG, SVG, GIF)', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                currentProject.logo = base64Data;
+
+                // Show preview
+                const logoUploadZone = document.getElementById('logoUploadZone');
+                const logoPreviewArea = document.getElementById('logoPreviewArea');
+                const logoPreviewImg = document.getElementById('logoPreviewImg');
+
+                logoPreviewImg.src = base64Data;
+                logoUploadZone.classList.add('hidden');
+                logoPreviewArea.classList.remove('hidden');
+
+                showToast('Logo uploaded');
+            };
+            reader.onerror = function() {
+                showToast('Error reading file', 'error');
+            };
+            reader.readAsDataURL(file);
+
+            // Clear the input so the same file can be selected again
+            event.target.value = '';
+        }
+
+        function removeLogo() {
+            if (!currentProject) return;
+
+            currentProject.logo = null;
+
+            const logoUploadZone = document.getElementById('logoUploadZone');
+            const logoPreviewArea = document.getElementById('logoPreviewArea');
+            const logoPreviewImg = document.getElementById('logoPreviewImg');
+
+            logoPreviewImg.src = '';
+            logoPreviewArea.classList.add('hidden');
+            logoUploadZone.classList.remove('hidden');
+
+            // Clear the file input
+            document.getElementById('logoInput').value = '';
+
+            showToast('Logo removed');
+        }
+
+        function setupLogoDropZone() {
+            const logoDropZone = document.getElementById('logoUploadZone');
+            if (!logoDropZone) return;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                logoDropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                logoDropZone.addEventListener(eventName, () => logoDropZone.classList.add('drag-active'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                logoDropZone.addEventListener(eventName, () => logoDropZone.classList.remove('drag-active'), false);
+            });
+
+            logoDropZone.addEventListener('drop', handleLogoDrop, false);
+        }
+
+        function handleLogoDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+
+            if (files.length > 0) {
+                // Create a fake event to reuse handleLogoSelect
+                const fakeEvent = {
+                    target: {
+                        files: files,
+                        value: ''
+                    }
+                };
+                handleLogoSelect(fakeEvent);
+            }
+        }
+
         // ============ EXTRACTION FUNCTIONS ============
         async function extractProjectData() {
             if (selectedFiles.length === 0) {
@@ -1519,10 +1696,11 @@
             }
         }
 
-        // Initialize drop zone when DOM is ready
+        // Initialize drop zones when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             renderSavedProjects();
             setupDropZone();
+            setupLogoDropZone();
         });
     </script>
 
