@@ -601,8 +601,78 @@
             localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
         }
 
+        // Counter to ensure unique IDs even when created in the same millisecond
+        let idCounter = 0;
+
         function generateId(prefix) {
-            return `${prefix}_${Date.now()}`;
+            return `${prefix}_${Date.now()}_${idCounter++}`;
+        }
+
+        // Migration function to repair duplicate IDs in existing projects
+        function repairDuplicateIds() {
+            const projects = getProjects();
+            let projectsModified = false;
+
+            projects.forEach(project => {
+                let modified = false;
+
+                // Repair duplicate contractor IDs
+                if (project.contractors && project.contractors.length > 0) {
+                    const seenContractorIds = new Set();
+                    const contractorIdMap = {}; // Maps old ID to new ID for equipment update
+
+                    project.contractors.forEach(contractor => {
+                        if (seenContractorIds.has(contractor.id)) {
+                            // Duplicate found - generate new ID
+                            const oldId = contractor.id;
+                            const newId = generateId('contractor');
+                            contractorIdMap[oldId] = newId;
+                            contractor.id = newId;
+                            modified = true;
+                            console.log(`[Migration] Fixed duplicate contractor ID: ${oldId} -> ${newId}`);
+                        } else {
+                            seenContractorIds.add(contractor.id);
+                            contractorIdMap[contractor.id] = contractor.id; // Keep same ID
+                        }
+                    });
+
+                    // Update equipment references if contractor IDs changed
+                    if (project.equipment && project.equipment.length > 0 && Object.keys(contractorIdMap).length > 0) {
+                        project.equipment.forEach(equip => {
+                            if (contractorIdMap[equip.contractorId] && contractorIdMap[equip.contractorId] !== equip.contractorId) {
+                                equip.contractorId = contractorIdMap[equip.contractorId];
+                            }
+                        });
+                    }
+                }
+
+                // Repair duplicate equipment IDs
+                if (project.equipment && project.equipment.length > 0) {
+                    const seenEquipmentIds = new Set();
+
+                    project.equipment.forEach(equip => {
+                        if (seenEquipmentIds.has(equip.id)) {
+                            // Duplicate found - generate new ID
+                            const oldId = equip.id;
+                            equip.id = generateId('equip');
+                            modified = true;
+                            console.log(`[Migration] Fixed duplicate equipment ID: ${oldId} -> ${equip.id}`);
+                        } else {
+                            seenEquipmentIds.add(equip.id);
+                        }
+                    });
+                }
+
+                if (modified) {
+                    projectsModified = true;
+                }
+            });
+
+            // Save if any projects were modified
+            if (projectsModified) {
+                saveProjects(projects);
+                console.log('[Migration] Saved projects with repaired IDs');
+            }
         }
 
         function createNewProject() {
@@ -1698,6 +1768,8 @@
 
         // Initialize drop zones when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
+            // Run migration to fix any existing projects with duplicate IDs
+            repairDuplicateIds();
             renderSavedProjects();
             setupDropZone();
             setupLogoDropZone();
