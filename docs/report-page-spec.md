@@ -50,6 +50,9 @@ The `getValue()` function implements a priority system for resolving field value
 | `getContractorOperations(contractorId)` | Per-contractor personnel counts |
 | `getEquipmentData()` | Equipment list with AI fallback |
 | `getNestedValue(obj, path)` | Dot-notation path accessor |
+| `calculateShiftDuration()` | Auto-calculate shift duration from start/end times |
+| `detectFieldMismatches()` | Detect AI response field mapping issues |
+| `initializeDebugPanel()` | Initialize debug panel with current report data |
 
 ### User Edit Tracking
 
@@ -61,23 +64,39 @@ When a user modifies a field, the value is stored in `report.userEdits[path]` an
 
 ### Project Overview Section
 
+The Project Overview section uses a DOT RPR Daily Report style 2-column grid layout.
+
+#### Project Logo
+
+| Element ID | Description |
+|------------|-------------|
+| `projectLogoContainer` | Container div (hidden if no logo) |
+| `projectLogo` | `<img>` element displaying project logo from `activeProject.logo` |
+
+#### Left Column Fields
+
 | Field ID | Label | Data Path | Type | Source |
 |----------|-------|-----------|------|--------|
 | `projectName` | Project Name | `overview.projectName` | text | Project config / editable |
 | `noabProjectNo` | NOAB Project No. | `overview.noabProjectNo` | text | Project config / editable |
 | `cnoSolicitationNo` | CNO Solicitation No. | `overview.cnoSolicitationNo` | text | Default: "N/A" |
-| `noticeToProceed` | Notice to Proceed | - | date | Project config (readonly) |
-| `contractDuration` | Contract Duration | - | text | Project config (readonly) |
-| `expectedCompletion` | Expected Completion | - | date | Project config (readonly) |
+| `noticeToProceed` | Notice to Proceed | - | date | Project config (readonly, `bg-slate-50`) |
+| `contractDuration` | Contract Duration | - | text | Project config (readonly, `bg-slate-50`) |
+| `expectedCompletion` | Expected Completion | - | date | Project config (readonly, `bg-slate-50`) |
 | `contractDay` | Contract Day # | `overview.contractDay` | text | Format: "Day X of Y" |
 | `weatherDaysCount` | Weather Days | `overview.weatherDays` | number | Editable |
+
+#### Right Column Fields
+
+| Field ID | Label | Data Path | Type | Source |
+|----------|-------|-----------|------|--------|
 | `reportDate` | Date | `overview.date` | date | Report date |
 | `projectLocation` | Location | `overview.location` | text | Project config / editable |
 | `engineer` | Engineer | `overview.engineer` | text | Project config / editable |
 | `contractor` | Contractor | `overview.contractor` | text | Project config / editable |
 | `startTime` | Start Time | `overview.startTime` | time | Default from project config |
 | `endTime` | End Time | `overview.endTime` | time | Default from project config |
-| `shiftDuration` | Shift Duration | - | text | Auto-calculated (readonly) |
+| `shiftDuration` | Shift Duration | - | text | Auto-calculated via `calculateShiftDuration()` (readonly, `bg-slate-50`) |
 | `completedBy` | Completed By | `overview.completedBy` | text | Inspector name |
 
 ### Weather Block
@@ -159,6 +178,53 @@ Photo metadata displayed: date, time, GPS coordinates (if available).
 | `signatureTitle` | Title | `signature.title` | text |
 | `signatureCompany` | Company | `signature.company` | text |
 | `signatureDate` | Date | - | display only (auto-filled) |
+
+### Debug Tool Panel
+
+A collapsible debug panel for troubleshooting AI field mapping issues. Located at the bottom of the form view.
+
+#### Panel Structure
+
+| Element ID | Description |
+|------------|-------------|
+| `debugPanel` | Main panel container (`.debug-panel.collapsed` by default) |
+| `debugPanelChevron` | Expand/collapse chevron icon |
+
+#### Debug Sections
+
+| Section ID | Header | Content |
+|------------|--------|---------|
+| `debugSectionAI` | AI Response Data | Raw JSON of `report.aiGenerated` |
+| `debugSectionFieldNotes` | Field Notes (Raw Capture) | JSON of `report.fieldNotes` and `report.guidedNotes` |
+| `debugSectionUserEdits` | User Edits | JSON of `report.userEdits` |
+| `debugSectionCurrentState` | Current Report State | JSON of current activities, operations, equipment |
+| `debugSectionIssues` | Field Mapping Issues | List of detected issues with issue count badge |
+
+#### Issue Types
+
+The `detectFieldMismatches()` function checks for these issue types:
+
+| Type | CSS Class | Description |
+|------|-----------|-------------|
+| `schema` | `.debug-issue.schema` | Unexpected keys in AI response |
+| `empty` | `.debug-issue.empty` | AI returned empty when fieldNotes had content |
+| `type` | `.debug-issue.type` | Expected array but got string or vice versa |
+| `contractor` | `.debug-issue.contractor` | ContractorId doesn't match any project contractor |
+
+#### Debug Banner
+
+| Element ID | Description |
+|------------|-------------|
+| `debugIssueBanner` | Yellow banner shown when issues detected (hidden by default) |
+
+Clicking the banner scrolls to the debug panel. Can be dismissed with the X button.
+
+#### Export Buttons
+
+| Function | Description |
+|----------|-------------|
+| `downloadDebugJSON()` | Download all debug data as JSON file |
+| `downloadDebugMarkdown()` | Download debug report as Markdown file |
 
 ---
 
@@ -343,6 +409,25 @@ The n8n webhook should return a JSON response with this structure:
 3. Image loading handled with states: loading spinner → image or error
 4. Orientation detection via `handlePhotoLoad()` (portrait vs landscape styling)
 5. Captions auto-save on blur and with 1-second debounce on input
+
+### Debug Panel
+
+**Render Function:** `initializeDebugPanel()`
+
+**Data Sources:**
+- `report.aiGenerated` - AI response data
+- `report.fieldNotes` / `report.guidedNotes` - Raw field capture
+- `report.userEdits` - User modifications
+- `projectContractors` - For contractor ID validation
+
+**Behavior:**
+1. Initializes on page load via `DOMContentLoaded`
+2. Runs `detectFieldMismatches()` to identify issues
+3. Populates each collapsible section with JSON data
+4. Shows `debugIssueBanner` if issues are detected
+5. Panel is collapsed by default; click header to expand
+6. Each section within panel is also collapsible
+7. Export buttons allow downloading debug data as JSON or Markdown
 
 ---
 
