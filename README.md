@@ -95,7 +95,7 @@
 | `index.html` | ~931 | Dashboard with project selection, active project display, weather, and navigation |
 | `quick-interview.html` | ~3,175 | DOT-compliant report with dual capture modes (Quick Notes minimal or Guided Sections), 12 expandable sections, auto-expanding textareas, contractor-based work entry |
 | `report.html` | ~1,881 | AI-populated editable DOT form with Form View and Original Notes tabs, Final Review navigation |
-| `finalreview.html` | ~850 | Read-only DOT RPR Daily Report viewer with print/PDF export, professional formatting |
+| `finalreview.html` | ~650 | Read-only DOT RPR Daily Report viewer matching official DOT format with 4+ page layout, print-optimized CSS, contractor-based work summary, operations/equipment tables, and photo grid |
 | `archives.html` | ~491 | Report history with swipe-to-delete, date-sorted report list, view finalized reports |
 | `editor.html` | ~741 | Photo capture with GPS embedding, full-size photo cards with orientation handling, editable captions |
 | `permissions.html` | ~1,596 | Permission testing (mic, camera, GPS), iOS-specific instructions for native dictation |
