@@ -608,6 +608,263 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         const isIOSSafari = isIOS && isSafari;
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+        // ============ STATE PROTECTION ============
+        /**
+         * Check if report is already refined - redirect if so
+         * This prevents users from editing after AI refinement
+         */
+        async function checkReportState() {
+            const activeProjectId = localStorage.getItem('fvp_active_project');
+            if (!activeProjectId) {
+                return true; // No project selected, allow page to load (will show project picker)
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+
+            try {
+                const { data: report, error } = await supabaseClient
+                    .from('reports')
+                    .select('id, status')
+                    .eq('project_id', activeProjectId)
+                    .eq('report_date', today)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error('[STATE CHECK] Error checking report state:', error);
+                    return true; // Allow page to load on error, let normal flow handle it
+                }
+
+                if (report && ['refined', 'submitted', 'finalized'].includes(report.status)) {
+                    // Cannot edit after AI refinement - redirect to report page
+                    console.log('[STATE CHECK] Report already refined, redirecting to report.html');
+                    window.location.href = `report.html?date=${today}`;
+                    return false;
+                }
+
+                return true;
+            } catch (e) {
+                console.error('[STATE CHECK] Failed to check report state:', e);
+                return true; // Allow page to load on error
+            }
+        }
+
+        // ============ LOCALSTORAGE DRAFT MANAGEMENT ============
+        const QUICK_INTERVIEW_STORAGE_KEY = 'fvp_quick_interview_draft';
+
+        /**
+         * Save all form data to localStorage
+         * This is called during editing - data only goes to Supabase on FINISH
+         */
+        function saveToLocalStorage() {
+            const activeProjectId = localStorage.getItem('fvp_active_project');
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            const data = {
+                projectId: activeProjectId,
+                reportDate: todayStr,
+                captureMode: report.meta?.captureMode || null,
+                lastSaved: new Date().toISOString(),
+
+                // Meta
+                meta: {
+                    createdAt: report.meta?.createdAt,
+                    version: report.meta?.version || 2,
+                    naMarked: report.meta?.naMarked || {},
+                    captureMode: report.meta?.captureMode,
+                    status: 'draft'
+                },
+
+                // Weather data
+                weather: report.overview?.weather || {},
+
+                // Minimal mode - freeform notes
+                freeformNotes: report.fieldNotes?.freeformNotes || '',
+
+                // Guided mode sections
+                workSummary: report.guidedNotes?.workSummary || '',
+                siteConditions: report.overview?.weather?.jobSiteCondition || '',
+                issuesNotes: report.generalIssues || [],
+                safetyNoIncidents: report.safety?.noIncidents || false,
+                safetyHasIncidents: report.safety?.hasIncidents || false,
+                safetyNotes: report.safety?.notes || [],
+                qaqcNotes: report.qaqcNotes || [],
+                communications: report.contractorCommunications || '',
+                visitorsRemarks: report.visitorsRemarks || '',
+                additionalNotes: report.additionalNotes || '',
+
+                // Contractor work (activities)
+                activities: report.activities || [],
+
+                // Personnel/operations
+                operations: report.operations || [],
+
+                // Equipment usage
+                equipment: report.equipment || [],
+
+                // Photos (metadata only - actual files uploaded separately)
+                photos: (report.photos || []).map(p => ({
+                    id: p.id,
+                    storagePath: p.storagePath || '',
+                    url: p.url || '',
+                    caption: p.caption || '',
+                    timestamp: p.timestamp,
+                    date: p.date,
+                    time: p.time,
+                    gps: p.gps,
+                    fileName: p.fileName
+                })),
+
+                // Reporter info
+                reporter: report.reporter || {},
+
+                // Overview
+                overview: {
+                    date: report.overview?.date,
+                    startTime: report.overview?.startTime,
+                    completedBy: report.overview?.completedBy,
+                    projectName: report.overview?.projectName
+                }
+            };
+
+            try {
+                localStorage.setItem(QUICK_INTERVIEW_STORAGE_KEY, JSON.stringify(data));
+                console.log('[LOCAL] Draft saved to localStorage');
+            } catch (e) {
+                console.error('[LOCAL] Failed to save to localStorage:', e);
+                // If localStorage is full, try to continue without local save
+            }
+        }
+
+        /**
+         * Load form data from localStorage
+         * Returns null if no valid draft exists for current project/date
+         */
+        function loadFromLocalStorage() {
+            const stored = localStorage.getItem(QUICK_INTERVIEW_STORAGE_KEY);
+            if (!stored) return null;
+
+            try {
+                const data = JSON.parse(stored);
+
+                // Verify it's for the same project and date
+                const activeProjectId = localStorage.getItem('fvp_active_project');
+                const today = new Date().toISOString().split('T')[0];
+
+                if (data.projectId !== activeProjectId || data.reportDate !== today) {
+                    // Different project or date - clear old draft
+                    console.log('[LOCAL] Draft is for different project/date, clearing');
+                    localStorage.removeItem(QUICK_INTERVIEW_STORAGE_KEY);
+                    return null;
+                }
+
+                console.log('[LOCAL] Found valid draft from', data.lastSaved);
+                return data;
+            } catch (e) {
+                console.error('[LOCAL] Failed to parse stored draft:', e);
+                localStorage.removeItem(QUICK_INTERVIEW_STORAGE_KEY);
+                return null;
+            }
+        }
+
+        /**
+         * Restore report object from localStorage data
+         */
+        function restoreFromLocalStorage(localData) {
+            if (!localData) return false;
+
+            console.log('[LOCAL] Restoring draft from localStorage');
+
+            // Restore meta
+            if (localData.meta) {
+                report.meta = { ...report.meta, ...localData.meta };
+            }
+            if (localData.captureMode) {
+                report.meta.captureMode = localData.captureMode;
+            }
+
+            // Restore weather
+            if (localData.weather) {
+                report.overview.weather = localData.weather;
+            }
+
+            // Restore freeform notes (minimal mode)
+            if (localData.freeformNotes) {
+                report.fieldNotes.freeformNotes = localData.freeformNotes;
+            }
+
+            // Restore guided sections
+            if (localData.workSummary) {
+                report.guidedNotes.workSummary = localData.workSummary;
+            }
+            if (localData.siteConditions) {
+                report.overview.weather.jobSiteCondition = localData.siteConditions;
+            }
+            if (localData.issuesNotes && Array.isArray(localData.issuesNotes)) {
+                report.generalIssues = localData.issuesNotes;
+            }
+            if (localData.safetyNoIncidents !== undefined) {
+                report.safety.noIncidents = localData.safetyNoIncidents;
+            }
+            if (localData.safetyHasIncidents !== undefined) {
+                report.safety.hasIncidents = localData.safetyHasIncidents;
+            }
+            if (localData.safetyNotes && Array.isArray(localData.safetyNotes)) {
+                report.safety.notes = localData.safetyNotes;
+            }
+            if (localData.qaqcNotes && Array.isArray(localData.qaqcNotes)) {
+                report.qaqcNotes = localData.qaqcNotes;
+            }
+            if (localData.communications) {
+                report.contractorCommunications = localData.communications;
+            }
+            if (localData.visitorsRemarks) {
+                report.visitorsRemarks = localData.visitorsRemarks;
+            }
+            if (localData.additionalNotes) {
+                report.additionalNotes = localData.additionalNotes;
+            }
+
+            // Restore contractor work
+            if (localData.activities && Array.isArray(localData.activities)) {
+                report.activities = localData.activities;
+            }
+
+            // Restore operations/personnel
+            if (localData.operations && Array.isArray(localData.operations)) {
+                report.operations = localData.operations;
+            }
+
+            // Restore equipment
+            if (localData.equipment && Array.isArray(localData.equipment)) {
+                report.equipment = localData.equipment;
+            }
+
+            // Restore photos
+            if (localData.photos && Array.isArray(localData.photos)) {
+                report.photos = localData.photos;
+            }
+
+            // Restore reporter
+            if (localData.reporter) {
+                report.reporter = { ...report.reporter, ...localData.reporter };
+            }
+
+            // Restore overview
+            if (localData.overview) {
+                report.overview = { ...report.overview, ...localData.overview };
+            }
+
+            return true;
+        }
+
+        /**
+         * Clear localStorage draft (called after successful FINISH)
+         */
+        function clearLocalStorageDraft() {
+            localStorage.removeItem(QUICK_INTERVIEW_STORAGE_KEY);
+            console.log('[LOCAL] Draft cleared from localStorage');
+        }
+
         // ============ FIELD MAPPING UTILITIES ============
         // Convert Supabase project row to JS format
         function fromSupabaseProject(row) {
@@ -1486,6 +1743,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 report.meta.status = 'refined';
                 await saveReportToSupabase();
 
+                // Clear localStorage draft - report is now saved and refined
+                clearLocalStorageDraft();
+
                 // Navigate to report
                 window.location.href = 'report.html';
             } catch (error) {
@@ -1497,8 +1757,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                     finishBtn.innerHTML = originalBtnHtml;
                 }
 
-                // Handle as offline
+                // Handle as offline - keep localStorage in case they want to retry
                 handleOfflineProcessing(payload);
+                // Note: Don't clear localStorage here - they might want to retry when online
                 window.location.href = 'report.html';
             }
         }
@@ -2700,20 +2961,23 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         }
 
         /**
-         * Save report to Supabase (debounced to prevent excessive API calls)
+         * Save report to localStorage (debounced to prevent excessive writes)
+         * Data only goes to Supabase when FINISH is clicked
          */
+        let localSaveTimeout = null;
+
         function saveReport() {
             // Update local UI immediately
             updateAllPreviews();
             updateProgress();
 
-            // Debounce actual save to Supabase
-            if (saveReportTimeout) {
-                clearTimeout(saveReportTimeout);
+            // Debounce save to localStorage
+            if (localSaveTimeout) {
+                clearTimeout(localSaveTimeout);
             }
-            saveReportTimeout = setTimeout(() => {
-                saveReportToSupabase();
-            }, 1000); // 1 second debounce
+            localSaveTimeout = setTimeout(() => {
+                saveToLocalStorage();
+            }, 500); // 500ms debounce for localStorage
         }
 
         /**
@@ -3752,6 +4016,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 report.meta.status = 'refined';
                 await saveReportToSupabase();
 
+                // Clear localStorage draft - report is now saved and refined
+                clearLocalStorageDraft();
+
                 // Navigate to report
                 window.location.href = 'report.html';
             } catch (error) {
@@ -3763,8 +4030,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                     finishBtn.innerHTML = originalBtnHtml;
                 }
 
-                // Handle as offline
+                // Handle as offline - keep localStorage in case they want to retry
                 handleOfflineProcessing(payload);
+                // Note: Don't clear localStorage here - they might want to retry when online
                 window.location.href = 'report.html';
             }
         }
@@ -3815,6 +4083,14 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
+                // STATE PROTECTION: Check if report is already refined BEFORE any other initialization
+                // This must run first to redirect users away from editing refined reports
+                updateLoadingStatus('Checking report state...');
+                const canEdit = await checkReportState();
+                if (!canEdit) {
+                    return; // Stop initialization if redirecting
+                }
+
                 // Load user settings from Supabase
                 updateLoadingStatus('Loading user settings...');
                 await loadUserSettings();
@@ -3823,29 +4099,39 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 updateLoadingStatus('Loading project data...');
                 await loadActiveProject();
 
-                // Load report from Supabase
+                // Load report from Supabase (baseline)
                 updateLoadingStatus('Loading report data...');
                 report = await getReport();
 
-                // If user came back to edit a "completed" report (from report.html), mark it as in-progress again
-                // This ensures the dashboard shows "In Progress" instead of "Ready for Review" while editing
-                if (report.meta?.interviewCompleted && !report.meta?.submitted) {
+                // LOCALSTORAGE-FIRST: Check if we have a localStorage draft with unsaved changes
+                // This recovers data if user swiped away the app without clicking FINISH
+                updateLoadingStatus('Checking for saved draft...');
+                const localDraft = loadFromLocalStorage();
+                if (localDraft) {
+                    console.log('[INIT] Found localStorage draft, restoring...');
+                    restoreFromLocalStorage(localDraft);
+                }
+
+                // If user came back to edit a draft report that was marked completed but not yet refined,
+                // mark it as in-progress again. Note: Refined/submitted/finalized reports are blocked
+                // by checkReportState() above, so we only get here for draft status.
+                if (report.meta?.interviewCompleted && report.meta?.status === 'draft') {
                     report.meta.interviewCompleted = false;
-                    saveReport();
+                    // Don't need to save here - we're just resetting local state
                 }
 
                 // Auto-populate project info from active project if not already set
                 if (activeProject && !report.project?.name) {
                     report.project.name = activeProject.name || '';
                     report.overview.projectName = activeProject.name || '';
-                    saveReport();
+                    // Don't save here - let regular auto-save handle it
                 }
 
                 // Auto-populate reporter name from user settings
                 if (userSettings && !report.reporter?.name) {
                     report.reporter.name = userSettings.full_name || '';
                     report.overview.completedBy = userSettings.full_name || '';
-                    saveReport();
+                    // Don't save here - let regular auto-save handle it
                 }
 
                 // Hide loading overlay

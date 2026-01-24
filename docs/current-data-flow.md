@@ -762,4 +762,98 @@ Based on this investigation, the planned refactor should:
 
 ---
 
-*Document generated from codebase analysis. Last updated: January 2026*
+## 8. IMPLEMENTED REFACTOR CHANGES (January 2026)
+
+The following changes have been implemented to address the issues identified above:
+
+### 8.1 State Protection (Phase 1)
+
+**quick-interview.html:**
+- Added `checkReportState()` function that runs BEFORE any other initialization
+- Redirects users to `report.html` if report status is 'refined', 'submitted', or 'finalized'
+- Users can no longer accidentally edit a report after AI refinement
+
+**index.html:**
+- Updated `updateReportStatus()` to hide "continue editing" link when status is refined
+- Updated `showProjectPickerModal()` to gray out and disable projects that have refined reports for today
+- Refined projects show a "In Review" badge and are non-clickable
+
+### 8.2 localStorage-First Editing (Phase 2)
+
+**New localStorage System:**
+- Key: `fvp_quick_interview_draft`
+- Stores all form data during editing
+- Data validated against current project ID and date
+- Automatically expires if project/date changes
+
+**Functions Added:**
+- `saveToLocalStorage()` - Saves entire form state to localStorage
+- `loadFromLocalStorage()` - Loads and validates draft data
+- `restoreFromLocalStorage()` - Restores draft into report object
+- `clearLocalStorageDraft()` - Clears draft after successful FINISH
+
+**Modified Behavior:**
+- `saveReport()` now saves to localStorage instead of Supabase (with 500ms debounce)
+- Data is recovered from localStorage on page load (survives app swipe-away)
+- Data only goes to Supabase when FINISH is clicked
+- localStorage is cleared after successful AI processing
+
+### 8.3 Schema Alignment (Phase 3)
+
+**Migration Required:** `migrations/001_add_guided_section_columns.sql`
+
+New columns added to `report_raw_capture`:
+- `site_conditions` (TEXT) - Site conditions from guided mode
+- `qaqc_notes` (TEXT) - QA/QC notes
+- `communications` (TEXT) - Contractor communications
+- `visitors_remarks` (TEXT) - Visitor remarks
+- `safety_has_incident` (BOOLEAN) - Safety incident flag
+
+### 8.4 Data Flow Summary (Post-Refactor)
+
+```
+User enters quick-interview.html
+          ↓
+   checkReportState()
+          ↓
+    Status refined? ──Yes──→ Redirect to report.html
+          ↓ No
+    Load from Supabase (baseline)
+          ↓
+    Check localStorage for draft
+          ↓ (if found)
+    Restore from localStorage
+          ↓
+    User edits form
+          ↓
+    saveReport() → localStorage (debounced 500ms)
+          ↓
+    User clicks FINISH
+          ↓
+    saveReportToSupabase() (all data)
+          ↓
+    Call AI webhook
+          ↓
+    Save AI response
+          ↓
+    Update status to 'refined'
+          ↓
+    clearLocalStorageDraft()
+          ↓
+    Redirect to report.html
+```
+
+### 8.5 Testing Checklist
+
+After implementing, test these scenarios:
+
+1. **Fresh start**: No localStorage, no Supabase data → Start new report
+2. **Swipe away and return**: Enter data → swipe out of app → return → data should persist
+3. **FINISH flow**: Complete interview → click FINISH → verify Supabase data → verify redirect
+4. **Try to go back**: After FINISH, try to navigate to quick-interview → should redirect to report.html
+5. **Index.html options**: Verify "Edit Report" button is hidden when status='refined'
+6. **Project picker**: Verify refined projects are grayed out
+
+---
+
+*Document updated: January 2026 - Post robust data flow refactor*

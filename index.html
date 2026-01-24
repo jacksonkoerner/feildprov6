@@ -388,9 +388,59 @@
                     </div>
                 `;
             } else {
+                // Fetch today's report status for all projects to check which are refined
+                const todayStr = getTodayDateStr();
+                const projectIds = projects.map(p => p.id);
+
+                let refinedProjectIds = new Set();
+                try {
+                    const { data: reports } = await supabaseClient
+                        .from('reports')
+                        .select('project_id, status')
+                        .in('project_id', projectIds)
+                        .eq('report_date', todayStr);
+
+                    if (reports) {
+                        reports.forEach(r => {
+                            if (['refined', 'submitted', 'finalized'].includes(r.status)) {
+                                refinedProjectIds.add(r.project_id);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to check project report statuses:', e);
+                }
+
                 // Render project list
                 listContainer.innerHTML = projects.map(project => {
                     const isActive = project.id === activeId;
+                    const isRefined = refinedProjectIds.has(project.id);
+
+                    if (isRefined) {
+                        // Project has a refined report - show disabled state
+                        return `
+                            <div class="w-full p-4 text-left border-b border-slate-200 last:border-b-0 bg-slate-50 opacity-60 cursor-not-allowed">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-slate-400 flex items-center justify-center shrink-0">
+                                        <i class="fas fa-lock text-white"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <p class="font-bold text-slate-600 truncate">${escapeHtml(project.name)}</p>
+                                            <span class="shrink-0 text-[10px] bg-slate-400 text-white px-2 py-0.5 font-bold uppercase">In Review</span>
+                                        </div>
+                                        <p class="text-xs text-slate-500 truncate mt-0.5">
+                                            ${project.noabProjectNo ? `#${escapeHtml(project.noabProjectNo)}` : ''}
+                                            ${project.noabProjectNo && project.location ? ' • ' : ''}
+                                            ${project.location ? escapeHtml(project.location) : ''}
+                                            ${!project.noabProjectNo && !project.location ? 'No details' : ''}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
                     return `
                         <button onclick="selectProjectAndProceed('${project.id}')" class="w-full p-4 text-left hover:bg-slate-50 transition-colors border-b border-slate-200 last:border-b-0 ${isActive ? 'bg-safety-green/5' : ''}">
                             <div class="flex items-center gap-3">
@@ -678,11 +728,15 @@
             } else if (report.meta?.interviewCompleted && !report.submitted) {
                 // STATE: Interview Complete, Ready for Review & Submit
                 const isPending = report.meta?.status === 'pending_refine';
-                const statusColor = isPending ? 'border-dot-yellow' : 'border-dot-blue';
-                const iconBg = isPending ? 'bg-dot-yellow' : 'bg-dot-blue';
-                const labelColor = isPending ? 'text-dot-yellow' : 'text-dot-blue';
-                const statusLabel = isPending ? 'Processing Pending' : 'Ready for Review';
+                const isRefined = ['refined', 'submitted', 'finalized'].includes(report.meta?.status);
+                const statusColor = isPending ? 'border-dot-yellow' : (isRefined ? 'border-safety-green' : 'border-dot-blue');
+                const iconBg = isPending ? 'bg-dot-yellow' : (isRefined ? 'bg-safety-green' : 'bg-dot-blue');
+                const labelColor = isPending ? 'text-dot-yellow' : (isRefined ? 'text-safety-green' : 'text-dot-blue');
+                const statusLabel = isPending ? 'Processing Pending' : (isRefined ? 'AI Refined' : 'Ready for Review');
                 const statusDesc = isPending ? 'AI processing will complete when online' : 'Review and submit your report';
+
+                // Only show "continue editing" link for draft and pending_refine status, NOT for refined reports
+                const showEditLink = !isRefined;
 
                 statusSection.innerHTML = `
                     <div class="bg-white border-2 ${statusColor} p-6">
@@ -693,15 +747,17 @@
                             <p class="text-xs font-bold ${labelColor} uppercase tracking-wider mb-1">${statusLabel}</p>
                             <p class="text-sm text-slate-700 font-medium mb-1">Report Complete</p>
                             <p class="text-xs text-slate-500 mb-4">${statusDesc}</p>
-                            <a href="report.html" class="block w-full bg-safety-green hover:bg-green-700 text-white p-4 transition-colors mb-3">
+                            <a href="report.html" class="block w-full bg-safety-green hover:bg-green-700 text-white p-4 transition-colors ${showEditLink ? 'mb-3' : ''}">
                                 <div class="flex items-center justify-center gap-3">
                                     <i class="fas fa-check-circle text-white"></i>
                                     <span class="font-bold uppercase tracking-wide">Review & Submit</span>
                                 </div>
                             </a>
+                            ${showEditLink ? `
                             <a href="quick-interview.html" class="text-sm text-slate-500 hover:text-dot-blue transition-colors">
                                 <i class="fas fa-edit mr-1"></i>or continue editing
                             </a>
+                            ` : ''}
                         </div>
                     </div>
                 `;
