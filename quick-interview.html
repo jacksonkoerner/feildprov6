@@ -19,6 +19,7 @@
     <meta name="apple-mobile-web-app-title" content="FieldVoice">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -128,6 +129,16 @@
 </head>
 <body class="bg-slate-100 min-h-screen">
     <div class="header-stripe"></div>
+
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-dot-navy z-[9999] flex flex-col items-center justify-center">
+        <div class="w-16 h-16 bg-dot-yellow flex items-center justify-center mb-4">
+            <i class="fas fa-clipboard-list text-dot-navy text-2xl"></i>
+        </div>
+        <i class="fas fa-spinner fa-spin text-white text-2xl mb-3"></i>
+        <p class="text-white font-bold uppercase text-sm">Loading Report...</p>
+        <p id="loadingStatus" class="text-slate-400 text-xs mt-1">Connecting to database</p>
+    </div>
 
     <!-- MODE SELECTION SCREEN -->
     <div id="modeSelectionScreen" class="hidden max-w-lg mx-auto min-h-screen flex flex-col">
@@ -773,17 +784,186 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
     </div>
 
     <script>
+        // ============ SUPABASE CONFIGURATION ============
+        const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1emFkb3RiZ2tqaGd3a3ZvdGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.RiW5IFA_i8Fj4QIc1Swe1ERx3rEwPyOnQ5tOicAFXI0';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // ============ STATE ============
         let currentSection = null;
         let report = null;
+        let currentReportId = null; // Supabase report ID
         let permissionsChecked = false;
         let activeProject = null;
         let projectContractors = [];
+        let userSettings = null;
 
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const isIOSSafari = isIOS && isSafari;
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // ============ FIELD MAPPING UTILITIES ============
+        // Convert Supabase project row to JS format
+        function fromSupabaseProject(row) {
+            return {
+                id: row.id,
+                name: row.project_name || '',
+                noabProjectNo: row.noab_project_no || '',
+                cnoSolicitationNo: row.cno_solicitation_no || 'N/A',
+                location: row.location || '',
+                engineer: row.engineer || '',
+                primeContractor: row.prime_contractor || '',
+                noticeToProceed: row.notice_to_proceed || '',
+                contractDuration: row.contract_duration || '',
+                weatherDays: row.weather_days || 0,
+                expectedCompletion: row.expected_completion || '',
+                defaultStartTime: row.default_start_time || '06:00',
+                defaultEndTime: row.default_end_time || '16:00',
+                logo: row.logo || null,
+                status: row.status || 'active',
+                contractors: [],
+                equipment: []
+            };
+        }
+
+        function fromSupabaseContractor(row) {
+            return {
+                id: row.id,
+                name: row.name || '',
+                abbreviation: row.abbreviation || '',
+                type: row.type || 'subcontractor',
+                trades: Array.isArray(row.trades) ? row.trades.join('; ') : (row.trades || ''),
+                status: row.status || 'active',
+                addedDate: row.added_date || null,
+                removedDate: row.removed_date || null
+            };
+        }
+
+        function fromSupabaseEquipment(row) {
+            return {
+                id: row.id,
+                contractorId: row.contractor_id,
+                type: row.type || '',
+                model: row.model || '',
+                identifier: row.identifier || null,
+                status: row.status || 'active',
+                addedDate: row.added_date || null,
+                removedDate: row.removed_date || null
+            };
+        }
+
+        // Convert JS objects to Supabase format
+        function toSupabaseContractor(contractor, projectId) {
+            return {
+                id: contractor.id,
+                project_id: projectId,
+                name: contractor.name || '',
+                abbreviation: contractor.abbreviation || '',
+                type: contractor.type || 'subcontractor',
+                trades: contractor.trades ? contractor.trades.split(';').map(t => t.trim()).filter(t => t) : [],
+                status: contractor.status || 'active',
+                added_date: contractor.addedDate || null,
+                removed_date: contractor.removedDate || null,
+                updated_at: new Date().toISOString()
+            };
+        }
+
+        function toSupabaseEquipment(equipment, projectId) {
+            return {
+                id: equipment.id,
+                project_id: projectId,
+                contractor_id: equipment.contractorId,
+                type: equipment.type || '',
+                model: equipment.model || '',
+                identifier: equipment.identifier || null,
+                status: equipment.status || 'active',
+                added_date: equipment.addedDate || null,
+                removed_date: equipment.removedDate || null,
+                updated_at: new Date().toISOString()
+            };
+        }
+
+        // Convert report to Supabase format for the reports table
+        function toSupabaseReport(report, projectId) {
+            return {
+                project_id: projectId,
+                report_date: new Date().toISOString().split('T')[0],
+                inspector_name: report.overview?.completedBy || userSettings?.full_name || '',
+                status: report.meta?.status || 'draft',
+                updated_at: new Date().toISOString()
+            };
+        }
+
+        // Convert raw capture data to Supabase format
+        function toSupabaseRawCapture(report, reportId) {
+            return {
+                report_id: reportId,
+                capture_mode: report.meta?.captureMode || 'guided',
+                freeform_notes: report.fieldNotes?.freeformNotes || '',
+                work_summary: report.guidedNotes?.workSummary || '',
+                issues_notes: report.generalIssues?.join('\n') || '',
+                safety_notes: report.safety?.notes?.join('\n') || '',
+                weather_data: report.overview?.weather || {},
+                captured_at: new Date().toISOString()
+            };
+        }
+
+        // Convert contractor work to Supabase format
+        function toSupabaseContractorWork(activity, reportId) {
+            return {
+                report_id: reportId,
+                contractor_id: activity.contractorId,
+                no_work_performed: activity.noWork || false,
+                narrative: activity.narrative || '',
+                equipment_used: activity.equipmentUsed || '',
+                crew: activity.crew || ''
+            };
+        }
+
+        // Convert personnel data to Supabase format
+        function toSupabasePersonnel(ops, reportId) {
+            return {
+                report_id: reportId,
+                contractor_id: ops.contractorId,
+                superintendents: ops.superintendents || 0,
+                foremen: ops.foremen || 0,
+                operators: ops.operators || 0,
+                laborers: ops.laborers || 0,
+                surveyors: ops.surveyors || 0,
+                others: ops.others || 0
+            };
+        }
+
+        // Convert equipment usage to Supabase format
+        function toSupabaseEquipmentUsage(equip, reportId) {
+            return {
+                report_id: reportId,
+                equipment_id: equip.equipmentId,
+                status: equip.hoursUtilized === null ? 'idle' : 'active',
+                hours_used: equip.hoursUtilized || 0,
+                notes: ''
+            };
+        }
+
+        // Convert photo to Supabase format
+        function toSupabasePhoto(photo, reportId) {
+            return {
+                report_id: reportId,
+                storage_path: photo.storagePath || '',
+                filename: photo.fileName || photo.id,
+                caption: photo.caption || '',
+                gps_lat: photo.gps?.lat || null,
+                gps_lng: photo.gps?.lng || null,
+                taken_at: photo.timestamp || new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+        }
+
+        // Generate UUID for new records
+        function generateId() {
+            return crypto.randomUUID();
+        }
 
         // ============ AUTO-EXPAND TEXTAREAS ============
         /**
@@ -1177,6 +1357,8 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
 
             for (const file of files) {
                 try {
+                    showToast('Processing photo...', 'info');
+
                     // Get GPS if available (using multi-reading high accuracy)
                     let gps = null;
                     try {
@@ -1185,21 +1367,37 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                         console.warn('[PHOTO] GPS failed:', e);
                     }
 
-                    // Compress and store image
-                    const compressed = await compressImage(await readFileAsDataURL(file));
+                    const photoId = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    const now = new Date();
 
-                    report.photos.push({
-                        id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                        url: compressed,
+                    // Compress image before uploading
+                    const rawDataUrl = await readFileAsDataURL(file);
+                    const compressedDataUrl = await compressImage(rawDataUrl, 1200, 0.7);
+                    const compressedBlob = await dataURLtoBlob(compressedDataUrl);
+
+                    // Upload to Supabase Storage
+                    showToast('Uploading photo...', 'info');
+                    const { storagePath, publicUrl } = await uploadPhotoToSupabase(compressedBlob, photoId);
+
+                    const photoObj = {
+                        id: photoId,
+                        url: publicUrl,
+                        storagePath: storagePath,
                         caption: '',
-                        timestamp: new Date().toISOString(),
-                        date: new Date().toLocaleDateString(),
-                        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                        gps: gps
-                    });
+                        timestamp: now.toISOString(),
+                        date: now.toLocaleDateString(),
+                        time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                        gps: gps,
+                        fileName: file.name
+                    };
 
-                    saveReport();
+                    report.photos.push(photoObj);
+
+                    // Save photo metadata to Supabase
+                    await savePhotoMetadata(photoObj);
+
                     renderMinimalPhotos();
+                    showToast('Photo uploaded', 'success');
                 } catch (err) {
                     console.error('Error adding photo:', err);
                     showToast('Failed to add photo', 'error');
@@ -1223,10 +1421,24 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         }
 
         /**
+         * Convert data URL to Blob
+         */
+        async function dataURLtoBlob(dataURL) {
+            const response = await fetch(dataURL);
+            return response.blob();
+        }
+
+        /**
          * Delete a photo in minimal mode
          */
-        function deleteMinimalPhoto(idx) {
+        async function deleteMinimalPhoto(idx) {
             if (!confirm('Delete this photo?')) return;
+
+            const photo = report.photos[idx];
+            if (photo) {
+                await deletePhotoFromSupabase(photo.id, photo.storagePath);
+            }
+
             report.photos.splice(idx, 1);
             saveReport();
             renderMinimalPhotos();
@@ -1342,6 +1554,58 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         }
 
         /**
+         * Save AI request to Supabase
+         */
+        async function saveAIRequest(payload) {
+            if (!currentReportId) return;
+
+            try {
+                const requestData = {
+                    report_id: currentReportId,
+                    request_payload: payload,
+                    sent_at: new Date().toISOString()
+                };
+
+                const { error } = await supabaseClient
+                    .from('report_ai_request')
+                    .insert(requestData);
+
+                if (error) {
+                    console.error('Error saving AI request:', error);
+                }
+            } catch (err) {
+                console.error('Failed to save AI request:', err);
+            }
+        }
+
+        /**
+         * Save AI response to Supabase
+         */
+        async function saveAIResponse(response, processingTimeMs) {
+            if (!currentReportId) return;
+
+            try {
+                const responseData = {
+                    report_id: currentReportId,
+                    response_payload: response,
+                    model_used: 'n8n-fieldvoice-refine',
+                    processing_time_ms: processingTimeMs,
+                    received_at: new Date().toISOString()
+                };
+
+                const { error } = await supabaseClient
+                    .from('report_ai_response')
+                    .insert(responseData);
+
+                if (error) {
+                    console.error('Error saving AI response:', error);
+                }
+            } catch (err) {
+                console.error('Failed to save AI response:', err);
+            }
+        }
+
+        /**
          * Handle offline/error scenario for AI processing
          */
         function handleOfflineProcessing(payload) {
@@ -1382,7 +1646,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             // Mark as interview completed
             report.meta.interviewCompleted = true;
             report.overview.endTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            saveReport();
+
+            // Ensure report is saved to Supabase first
+            await saveReportToSupabase();
 
             // Build payload
             const payload = buildProcessPayload();
@@ -1394,16 +1660,25 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 return;
             }
 
+            // Save AI request to Supabase
+            await saveAIRequest(payload);
+
+            const startTime = Date.now();
+
             // Call webhook
             try {
                 const result = await callProcessWebhook(payload);
+                const processingTime = Date.now() - startTime;
 
-                // Save AI response
+                // Save AI response to Supabase
+                await saveAIResponse(result.aiGenerated, processingTime);
+
+                // Save AI response to local report
                 if (result.aiGenerated) {
                     report.aiGenerated = result.aiGenerated;
                 }
                 report.meta.status = 'refined';
-                saveReport();
+                await saveReportToSupabase();
 
                 // Navigate to report
                 window.location.href = 'report.html';
@@ -1423,10 +1698,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         }
 
         // ============ PROJECT & CONTRACTOR LOADING ============
-        const PROJECTS_KEY = 'fvp_projects';
-        const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+        const ACTIVE_PROJECT_KEY = 'fvp_active_project'; // Keep in localStorage (device-specific)
 
-        function loadActiveProject() {
+        async function loadActiveProject() {
             const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
             if (!activeId) {
                 activeProject = null;
@@ -1434,17 +1708,31 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 return null;
             }
 
-            const projectsJson = localStorage.getItem(PROJECTS_KEY);
-            if (!projectsJson) {
-                activeProject = null;
-                projectContractors = [];
-                return null;
-            }
-
             try {
-                const projects = JSON.parse(projectsJson);
-                activeProject = projects.find(p => p.id === activeId) || null;
-                if (activeProject && activeProject.contractors) {
+                // Fetch project from Supabase
+                const { data: projectRow, error: projectError } = await supabaseClient
+                    .from('projects')
+                    .select('*')
+                    .eq('id', activeId)
+                    .single();
+
+                if (projectError || !projectRow) {
+                    console.error('Failed to load project from Supabase:', projectError);
+                    activeProject = null;
+                    projectContractors = [];
+                    return null;
+                }
+
+                activeProject = fromSupabaseProject(projectRow);
+
+                // Fetch contractors for this project
+                const { data: contractorRows, error: contractorError } = await supabaseClient
+                    .from('contractors')
+                    .select('*')
+                    .eq('project_id', activeId);
+
+                if (!contractorError && contractorRows) {
+                    activeProject.contractors = contractorRows.map(fromSupabaseContractor);
                     // Sort: prime contractors first, then subcontractors
                     projectContractors = [...activeProject.contractors].sort((a, b) => {
                         if (a.type === 'prime' && b.type !== 'prime') return -1;
@@ -1454,11 +1742,53 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 } else {
                     projectContractors = [];
                 }
+
+                // Fetch equipment for this project
+                const { data: equipmentRows, error: equipmentError } = await supabaseClient
+                    .from('equipment')
+                    .select('*')
+                    .eq('project_id', activeId);
+
+                if (!equipmentError && equipmentRows) {
+                    activeProject.equipment = equipmentRows.map(fromSupabaseEquipment);
+                }
+
                 return activeProject;
             } catch (e) {
                 console.error('Failed to load project:', e);
                 activeProject = null;
                 projectContractors = [];
+                return null;
+            }
+        }
+
+        async function loadUserSettings() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('user_profiles')
+                    .select('*')
+                    .limit(1)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    console.error('Failed to load user settings:', error);
+                    return null;
+                }
+
+                if (data) {
+                    userSettings = {
+                        id: data.id,
+                        full_name: data.full_name || '',
+                        title: data.title || '',
+                        company: data.company || '',
+                        email: data.email || '',
+                        phone: data.phone || ''
+                    };
+                    return userSettings;
+                }
+                return null;
+            } catch (e) {
+                console.error('Failed to load user settings:', e);
                 return null;
             }
         }
@@ -1739,7 +2069,7 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             document.getElementById('addContractorModal').classList.add('hidden');
         }
 
-        function saveNewContractor() {
+        async function saveNewContractor() {
             const name = document.getElementById('newContractorName').value.trim();
             const abbreviation = document.getElementById('newContractorAbbr').value.trim().toUpperCase();
             const type = document.getElementById('newContractorType').value;
@@ -1764,10 +2094,16 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 return;
             }
 
-            // Generate unique contractor ID
-            const contractorId = `contractor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            // Add to active project
+            if (!activeProject) {
+                showToast('No project selected', 'error');
+                return;
+            }
 
-            // Create new contractor object
+            // Generate unique contractor ID
+            const contractorId = generateId();
+
+            // Create new contractor object (JS format)
             const newContractor = {
                 id: contractorId,
                 name: name,
@@ -1776,33 +2112,29 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 trades: trades || ''
             };
 
-            // Add to active project in localStorage
-            if (!activeProject) {
-                showToast('No project selected', 'error');
+            // Save to Supabase
+            try {
+                const supabaseContractor = toSupabaseContractor(newContractor, activeProject.id);
+                const { error } = await supabaseClient
+                    .from('contractors')
+                    .insert(supabaseContractor);
+
+                if (error) {
+                    console.error('Failed to save contractor:', error);
+                    showToast('Failed to save contractor', 'error');
+                    return;
+                }
+            } catch (e) {
+                console.error('Failed to save contractor to Supabase:', e);
+                showToast('Failed to save contractor', 'error');
                 return;
             }
 
+            // Add to local state
             if (!activeProject.contractors) {
                 activeProject.contractors = [];
             }
             activeProject.contractors.push(newContractor);
-
-            // Update localStorage
-            const projectsJson = localStorage.getItem(PROJECTS_KEY);
-            if (projectsJson) {
-                try {
-                    const projects = JSON.parse(projectsJson);
-                    const projectIndex = projects.findIndex(p => p.id === activeProject.id);
-                    if (projectIndex >= 0) {
-                        projects[projectIndex] = activeProject;
-                        localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-                    }
-                } catch (e) {
-                    console.error('Failed to save contractor to project:', e);
-                    showToast('Failed to save contractor', 'error');
-                    return;
-                }
-            }
 
             // Update local projectContractors array (sorted: primes first)
             projectContractors = [...activeProject.contractors].sort((a, b) => {
@@ -1929,7 +2261,7 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             document.getElementById('addEquipmentModal').classList.add('hidden');
         }
 
-        function saveNewEquipment() {
+        async function saveNewEquipment() {
             const contractorId = document.getElementById('newEquipmentContractor').value;
             const type = document.getElementById('newEquipmentType').value.trim();
             const model = document.getElementById('newEquipmentModel').value.trim();
@@ -1944,6 +2276,11 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             if (!type) {
                 showToast('Equipment type is required', 'error');
                 document.getElementById('newEquipmentType').focus();
+                return;
+            }
+
+            if (!activeProject) {
+                showToast('No project selected', 'error');
                 return;
             }
 
@@ -1962,9 +2299,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             }
 
             // Generate unique equipment ID
-            const equipmentId = `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const equipmentId = generateId();
 
-            // Create new equipment object
+            // Create new equipment object (JS format)
             const newEquipment = {
                 id: equipmentId,
                 contractorId: contractorId,
@@ -1973,33 +2310,29 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 quantity: quantity
             };
 
-            // Add to active project in localStorage
-            if (!activeProject) {
-                showToast('No project selected', 'error');
+            // Save to Supabase
+            try {
+                const supabaseEquipment = toSupabaseEquipment(newEquipment, activeProject.id);
+                const { error } = await supabaseClient
+                    .from('equipment')
+                    .insert(supabaseEquipment);
+
+                if (error) {
+                    console.error('Failed to save equipment:', error);
+                    showToast('Failed to save equipment', 'error');
+                    return;
+                }
+            } catch (e) {
+                console.error('Failed to save equipment to Supabase:', e);
+                showToast('Failed to save equipment', 'error');
                 return;
             }
 
+            // Add to local state
             if (!activeProject.equipment) {
                 activeProject.equipment = [];
             }
             activeProject.equipment.push(newEquipment);
-
-            // Update localStorage (project config)
-            const projectsJson = localStorage.getItem(PROJECTS_KEY);
-            if (projectsJson) {
-                try {
-                    const projects = JSON.parse(projectsJson);
-                    const projectIndex = projects.findIndex(p => p.id === activeProject.id);
-                    if (projectIndex >= 0) {
-                        projects[projectIndex] = activeProject;
-                        localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-                    }
-                } catch (e) {
-                    console.error('Failed to save equipment to project:', e);
-                    showToast('Failed to save equipment', 'error');
-                    return;
-                }
-            }
 
             // Add to report's equipment array with initial status (IDLE)
             if (!report.equipment) report.equipment = [];
@@ -2680,98 +3013,193 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             return report && report.equipment && report.equipment.length > 0;
         }
 
-        // ============ STORAGE ============
+        // ============ STORAGE (SUPABASE) ============
+        let saveReportTimeout = null;
+        let isSaving = false;
+
         /**
-         * Generate a report storage key
-         * @param {string|null} projectId - Project ID (null for legacy fallback)
-         * @param {string|null} dateStr - Date string YYYY-MM-DD (null for today)
-         * @returns {string} Storage key
+         * Generate a report storage key (kept for legacy/reference)
          */
         function getReportKey(projectId, dateStr) {
             const date = dateStr || new Date().toISOString().split('T')[0];
             return projectId
                 ? `fieldvoice_report_${projectId}_${date}`
-                : `fieldvoice_report_${date}`; // fallback for legacy
+                : `fieldvoice_report_${date}`;
         }
 
         function getTodayKey() {
             return getReportKey(activeProject?.id, null);
         }
 
-        function getReport() {
+        /**
+         * Load report from Supabase
+         */
+        async function getReport() {
             const todayStr = new Date().toISOString().split('T')[0];
 
-            // First try project-specific key (new format)
-            if (activeProject) {
-                const projectKey = getReportKey(activeProject.id, todayStr);
-                const saved = localStorage.getItem(projectKey);
-                if (saved) {
-                    try {
-                        const parsed = JSON.parse(saved);
+            if (!activeProject) {
+                return createFreshReport();
+            }
 
-                        // If report was already submitted, archive it and start fresh
-                        if (parsed.meta && parsed.meta.submitted === true) {
-                            const archiveKey = `${projectKey}_submitted_${Date.now()}`;
-                            localStorage.setItem(archiveKey, saved);
-                            localStorage.removeItem(projectKey);
-                            return createFreshReport();
-                        }
+            try {
+                // Query for existing report for this project and date
+                const { data: reportRow, error: reportError } = await supabaseClient
+                    .from('reports')
+                    .select('*')
+                    .eq('project_id', activeProject.id)
+                    .eq('report_date', todayStr)
+                    .maybeSingle();
 
-                        return migrateReportFields(parsed);
-                    } catch (e) {}
+                if (reportError) {
+                    console.error('Error fetching report:', reportError);
+                    return createFreshReport();
+                }
+
+                if (!reportRow) {
+                    return createFreshReport();
+                }
+
+                // If report was already submitted, create fresh
+                if (reportRow.status === 'submitted') {
+                    return createFreshReport();
+                }
+
+                // Store the report ID for updates
+                currentReportId = reportRow.id;
+
+                // Load raw capture data
+                const { data: rawCapture } = await supabaseClient
+                    .from('report_raw_capture')
+                    .select('*')
+                    .eq('report_id', reportRow.id)
+                    .maybeSingle();
+
+                // Load contractor work
+                const { data: contractorWork } = await supabaseClient
+                    .from('report_contractor_work')
+                    .select('*')
+                    .eq('report_id', reportRow.id);
+
+                // Load personnel
+                const { data: personnel } = await supabaseClient
+                    .from('report_personnel')
+                    .select('*')
+                    .eq('report_id', reportRow.id);
+
+                // Load equipment usage
+                const { data: equipmentUsage } = await supabaseClient
+                    .from('report_equipment_usage')
+                    .select('*')
+                    .eq('report_id', reportRow.id);
+
+                // Load photos
+                const { data: photos } = await supabaseClient
+                    .from('report_photos')
+                    .select('*')
+                    .eq('report_id', reportRow.id)
+                    .order('taken_at', { ascending: true });
+
+                // Reconstruct the report object
+                const reconstructedReport = reconstructReportFromSupabase(
+                    reportRow, rawCapture, contractorWork, personnel, equipmentUsage, photos
+                );
+
+                return reconstructedReport;
+            } catch (e) {
+                console.error('Failed to load report from Supabase:', e);
+                return createFreshReport();
+            }
+        }
+
+        /**
+         * Reconstruct report object from Supabase data
+         */
+        function reconstructReportFromSupabase(reportRow, rawCapture, contractorWork, personnel, equipmentUsage, photos) {
+            const report = createFreshReport();
+
+            // Set meta information
+            report.meta.createdAt = reportRow.created_at;
+            report.meta.status = reportRow.status;
+            report.meta.interviewCompleted = reportRow.status === 'refined' || reportRow.status === 'submitted';
+
+            // Set raw capture data
+            if (rawCapture) {
+                report.meta.captureMode = rawCapture.capture_mode;
+                report.fieldNotes.freeformNotes = rawCapture.freeform_notes || '';
+                report.guidedNotes.workSummary = rawCapture.work_summary || '';
+                report.generalIssues = rawCapture.issues_notes ? rawCapture.issues_notes.split('\n').filter(s => s.trim()) : [];
+                if (rawCapture.safety_notes) {
+                    report.safety.notes = rawCapture.safety_notes.split('\n').filter(s => s.trim());
+                    report.safety.noIncidents = rawCapture.safety_notes.toLowerCase().includes('no incident');
+                    report.safety.hasIncidents = !report.safety.noIncidents && report.safety.notes.length > 0;
+                }
+                if (rawCapture.weather_data) {
+                    report.overview.weather = rawCapture.weather_data;
                 }
             }
 
-            // Fallback to legacy key (date-only, for backwards compatibility)
-            const legacyKey = getReportKey(null, todayStr);
-            const legacySaved = localStorage.getItem(legacyKey);
-            if (legacySaved) {
-                try {
-                    const parsed = JSON.parse(legacySaved);
+            // Set overview
+            report.overview.date = new Date(reportRow.report_date).toLocaleDateString();
+            report.overview.completedBy = reportRow.inspector_name || '';
 
-                    if (parsed.meta && parsed.meta.submitted === true) {
-                        const archiveKey = `${legacyKey}_submitted_${Date.now()}`;
-                        localStorage.setItem(archiveKey, legacySaved);
-                        localStorage.removeItem(legacyKey);
-                        localStorage.removeItem('fieldvoice_report');
-                        return createFreshReport();
+            // Set contractor work/activities
+            if (contractorWork && contractorWork.length > 0) {
+                report.activities = contractorWork.map(cw => ({
+                    contractorId: cw.contractor_id,
+                    noWork: cw.no_work_performed,
+                    narrative: cw.narrative || '',
+                    equipmentUsed: cw.equipment_used || '',
+                    crew: cw.crew || ''
+                }));
+            }
+
+            // Set personnel/operations
+            if (personnel && personnel.length > 0) {
+                report.operations = personnel.map(p => ({
+                    contractorId: p.contractor_id,
+                    superintendents: p.superintendents || null,
+                    foremen: p.foremen || null,
+                    operators: p.operators || null,
+                    laborers: p.laborers || null,
+                    surveyors: p.surveyors || null,
+                    others: p.others || null
+                }));
+            }
+
+            // Set equipment usage
+            if (equipmentUsage && equipmentUsage.length > 0) {
+                report.equipment = equipmentUsage.map(eu => ({
+                    equipmentId: eu.equipment_id,
+                    hoursUtilized: eu.status === 'idle' ? null : (eu.hours_used || 0),
+                    quantity: 1
+                }));
+            }
+
+            // Set photos with public URLs
+            if (photos && photos.length > 0) {
+                report.photos = photos.map(p => {
+                    let url = '';
+                    if (p.storage_path) {
+                        const { data } = supabaseClient.storage
+                            .from('report-photos')
+                            .getPublicUrl(p.storage_path);
+                        url = data?.publicUrl || '';
                     }
-
-                    return migrateReportFields(parsed);
-                } catch (e) {}
+                    return {
+                        id: p.id,
+                        url: url,
+                        storagePath: p.storage_path,
+                        caption: p.caption || '',
+                        timestamp: p.taken_at,
+                        date: new Date(p.taken_at).toLocaleDateString(),
+                        time: new Date(p.taken_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                        gps: p.gps_lat && p.gps_lng ? { lat: p.gps_lat, lng: p.gps_lng } : null,
+                        fileName: p.filename
+                    };
+                });
             }
 
-            return createFreshReport();
-        }
-
-        function migrateReportFields(parsed) {
-            if (!parsed.meta) parsed.meta = {};
-            if (!parsed.meta.naMarked) parsed.meta.naMarked = {};
-            if (!parsed.safety) parsed.safety = { hasIncidents: false, noIncidents: false, notes: [] };
-            // Ensure new fields exist for legacy reports
-            if (!parsed.reporter) parsed.reporter = { name: "" };
-            if (!parsed.project) parsed.project = { name: "", dayNumber: null };
-            if (parsed.additionalNotes === undefined) parsed.additionalNotes = "";
-            // Migrate contractorCommunications (new field)
-            if (parsed.contractorCommunications === undefined) parsed.contractorCommunications = "";
-            // Migrate visitorsRemarks from array to string format
-            if (Array.isArray(parsed.visitorsRemarks)) {
-                parsed.visitorsRemarks = parsed.visitorsRemarks.join('\n');
-            }
-            if (parsed.visitorsRemarks === undefined) parsed.visitorsRemarks = "";
-            // Migrate captureMode field (default to 'guided' for existing reports with data)
-            if (parsed.meta.captureMode === undefined) {
-                // If report has any guided section data, assume it's guided mode
-                const hasGuidedData = parsed.activities?.length > 0 ||
-                    parsed.generalIssues?.length > 0 ||
-                    parsed.qaqcNotes?.length > 0 ||
-                    parsed.safety?.notes?.length > 0;
-                parsed.meta.captureMode = hasGuidedData ? 'guided' : null;
-            }
-            // Migrate fieldNotes structure
-            if (!parsed.fieldNotes) parsed.fieldNotes = { freeformNotes: "" };
-            if (parsed.fieldNotes.freeformNotes === undefined) parsed.fieldNotes.freeformNotes = "";
-            return parsed;
+            return report;
         }
 
         function createFreshReport() {
@@ -2781,19 +3209,21 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                     interviewCompleted: false,
                     version: 2,
                     naMarked: {},
-                    captureMode: null // 'minimal' or 'guided' - null means mode not yet selected
+                    captureMode: null,
+                    status: 'draft'
                 },
                 reporter: {
-                    name: ""
+                    name: userSettings?.full_name || ""
                 },
                 project: {
-                    name: "",
+                    name: activeProject?.name || "",
                     dayNumber: null
                 },
                 overview: {
-                    projectName: "",
+                    projectName: activeProject?.name || "",
                     date: new Date().toLocaleDateString(),
                     startTime: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+                    completedBy: userSettings?.full_name || "",
                     weather: { highTemp: "--", lowTemp: "--", precipitation: "0.00\"", generalCondition: "Syncing...", jobSiteCondition: "", adverseConditions: "N/A" }
                 },
                 contractors: [], activities: [], operations: [], equipment: [], generalIssues: [], qaqcNotes: [],
@@ -2802,53 +3232,252 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 visitorsRemarks: "",
                 photos: [],
                 additionalNotes: "",
-                // Minimal mode fields
-                fieldNotes: {
-                    freeformNotes: ""
-                },
-                // Guided mode simplified fields
-                guidedNotes: {
-                    workSummary: ""
-                }
+                fieldNotes: { freeformNotes: "" },
+                guidedNotes: { workSummary: "" }
             };
         }
 
+        /**
+         * Save report to Supabase (debounced to prevent excessive API calls)
+         */
         function saveReport() {
+            // Update local UI immediately
+            updateAllPreviews();
+            updateProgress();
+
+            // Debounce actual save to Supabase
+            if (saveReportTimeout) {
+                clearTimeout(saveReportTimeout);
+            }
+            saveReportTimeout = setTimeout(() => {
+                saveReportToSupabase();
+            }, 1000); // 1 second debounce
+        }
+
+        /**
+         * Actually save report to Supabase
+         */
+        async function saveReportToSupabase() {
+            if (isSaving || !activeProject) return;
+            isSaving = true;
+
             try {
-                const reportJson = JSON.stringify(report);
                 const todayStr = new Date().toISOString().split('T')[0];
 
-                // Save with project-specific key if we have an active project
-                if (activeProject) {
-                    const projectKey = getReportKey(activeProject.id, todayStr);
-                    localStorage.setItem(projectKey, reportJson);
-                } else {
-                    // Fallback to legacy key if no active project
-                    const legacyKey = getReportKey(null, todayStr);
-                    localStorage.setItem(legacyKey, reportJson);
+                // 1. Upsert the main report record
+                let reportId = currentReportId;
+                if (!reportId) {
+                    reportId = generateId();
                 }
 
-                // Also save to very old legacy key for backwards compatibility
-                localStorage.setItem('fieldvoice_report', reportJson);
+                const reportData = {
+                    id: reportId,
+                    project_id: activeProject.id,
+                    report_date: todayStr,
+                    inspector_name: report.overview?.completedBy || userSettings?.full_name || '',
+                    status: report.meta?.status || 'draft',
+                    updated_at: new Date().toISOString()
+                };
 
-                updateAllPreviews();
-                updateProgress();
-            } catch (err) {
-                if (err.name === 'QuotaExceededError' || err.message.includes('quota')) {
-                    console.error('[STORAGE] Quota exceeded! Report size:', JSON.stringify(report).length, 'bytes');
-                    console.error('[STORAGE] Photos count:', report.photos.length);
-                    showToast('Storage full! Remove some photos.', 'error');
-                    // Try to save without the last photo
-                    if (report.photos.length > 0) {
-                        const removedPhoto = report.photos.pop();
-                        console.warn('[STORAGE] Removed last photo to free space:', removedPhoto.id);
-                        showToast('Last photo removed - storage full', 'warning');
-                        saveReport(); // Retry
-                    }
-                } else {
-                    console.error('[STORAGE] Save failed:', err);
+                const { error: reportError } = await supabaseClient
+                    .from('reports')
+                    .upsert(reportData, { onConflict: 'id' });
+
+                if (reportError) {
+                    console.error('Error saving report:', reportError);
                     showToast('Failed to save report', 'error');
+                    isSaving = false;
+                    return;
                 }
+
+                currentReportId = reportId;
+
+                // 2. Upsert raw capture data
+                const rawCaptureData = {
+                    report_id: reportId,
+                    capture_mode: report.meta?.captureMode || 'guided',
+                    freeform_notes: report.fieldNotes?.freeformNotes || '',
+                    work_summary: report.guidedNotes?.workSummary || '',
+                    issues_notes: report.generalIssues?.join('\n') || '',
+                    safety_notes: report.safety?.notes?.join('\n') || '',
+                    weather_data: report.overview?.weather || {},
+                    captured_at: new Date().toISOString()
+                };
+
+                // Delete existing and insert new (simpler than upsert for child tables)
+                await supabaseClient
+                    .from('report_raw_capture')
+                    .delete()
+                    .eq('report_id', reportId);
+
+                await supabaseClient
+                    .from('report_raw_capture')
+                    .insert(rawCaptureData);
+
+                // 3. Save contractor work
+                if (report.activities && report.activities.length > 0) {
+                    await supabaseClient
+                        .from('report_contractor_work')
+                        .delete()
+                        .eq('report_id', reportId);
+
+                    const contractorWorkData = report.activities.map(a => ({
+                        report_id: reportId,
+                        contractor_id: a.contractorId,
+                        no_work_performed: a.noWork || false,
+                        narrative: a.narrative || '',
+                        equipment_used: a.equipmentUsed || '',
+                        crew: a.crew || ''
+                    }));
+
+                    await supabaseClient
+                        .from('report_contractor_work')
+                        .insert(contractorWorkData);
+                }
+
+                // 4. Save personnel
+                if (report.operations && report.operations.length > 0) {
+                    await supabaseClient
+                        .from('report_personnel')
+                        .delete()
+                        .eq('report_id', reportId);
+
+                    const personnelData = report.operations.map(o => ({
+                        report_id: reportId,
+                        contractor_id: o.contractorId,
+                        superintendents: o.superintendents || 0,
+                        foremen: o.foremen || 0,
+                        operators: o.operators || 0,
+                        laborers: o.laborers || 0,
+                        surveyors: o.surveyors || 0,
+                        others: o.others || 0
+                    }));
+
+                    await supabaseClient
+                        .from('report_personnel')
+                        .insert(personnelData);
+                }
+
+                // 5. Save equipment usage
+                if (report.equipment && report.equipment.length > 0) {
+                    await supabaseClient
+                        .from('report_equipment_usage')
+                        .delete()
+                        .eq('report_id', reportId);
+
+                    const equipmentData = report.equipment.map(e => ({
+                        report_id: reportId,
+                        equipment_id: e.equipmentId,
+                        status: e.hoursUtilized === null ? 'idle' : 'active',
+                        hours_used: e.hoursUtilized || 0,
+                        notes: ''
+                    }));
+
+                    await supabaseClient
+                        .from('report_equipment_usage')
+                        .insert(equipmentData);
+                }
+
+                // Note: Photos are saved separately when uploaded via uploadPhotoToSupabase
+
+                console.log('[SUPABASE] Report saved successfully');
+            } catch (err) {
+                console.error('[SUPABASE] Save failed:', err);
+                showToast('Failed to save report', 'error');
+            } finally {
+                isSaving = false;
+            }
+        }
+
+        /**
+         * Upload photo to Supabase Storage
+         */
+        async function uploadPhotoToSupabase(file, photoId) {
+            if (!currentReportId) {
+                // Create report first if it doesn't exist
+                await saveReportToSupabase();
+            }
+
+            const fileName = `${currentReportId}/${photoId}_${file.name}`;
+
+            try {
+                const { data, error } = await supabaseClient.storage
+                    .from('report-photos')
+                    .upload(fileName, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (error) {
+                    console.error('Error uploading photo:', error);
+                    throw error;
+                }
+
+                // Get public URL
+                const { data: urlData } = supabaseClient.storage
+                    .from('report-photos')
+                    .getPublicUrl(fileName);
+
+                return {
+                    storagePath: fileName,
+                    publicUrl: urlData?.publicUrl || ''
+                };
+            } catch (err) {
+                console.error('Photo upload failed:', err);
+                throw err;
+            }
+        }
+
+        /**
+         * Save photo metadata to Supabase
+         */
+        async function savePhotoMetadata(photo) {
+            if (!currentReportId) return;
+
+            try {
+                const photoData = {
+                    id: photo.id,
+                    report_id: currentReportId,
+                    storage_path: photo.storagePath || '',
+                    filename: photo.fileName || photo.id,
+                    caption: photo.caption || '',
+                    gps_lat: photo.gps?.lat || null,
+                    gps_lng: photo.gps?.lng || null,
+                    taken_at: photo.timestamp || new Date().toISOString(),
+                    created_at: new Date().toISOString()
+                };
+
+                const { error } = await supabaseClient
+                    .from('report_photos')
+                    .upsert(photoData, { onConflict: 'id' });
+
+                if (error) {
+                    console.error('Error saving photo metadata:', error);
+                }
+            } catch (err) {
+                console.error('Failed to save photo metadata:', err);
+            }
+        }
+
+        /**
+         * Delete photo from Supabase
+         */
+        async function deletePhotoFromSupabase(photoId, storagePath) {
+            try {
+                // Delete from storage
+                if (storagePath) {
+                    await supabaseClient.storage
+                        .from('report-photos')
+                        .remove([storagePath]);
+                }
+
+                // Delete metadata
+                await supabaseClient
+                    .from('report_photos')
+                    .delete()
+                    .eq('id', photoId);
+            } catch (err) {
+                console.error('Failed to delete photo:', err);
             }
         }
 
@@ -3043,7 +3672,7 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 }
 
                 // Show processing indicator
-                showToast('Processing photo...', 'info');
+                showToast('Uploading photo...', 'info');
 
                 // Get GPS coordinates (using multi-reading high accuracy)
                 let gps = null;
@@ -3058,58 +3687,35 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                     // Continue without GPS - don't block the photo
                 }
 
-                // Read file as data URL
                 try {
-                    const rawDataUrl = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            console.log(`[PHOTO] FileReader success, raw size: ${Math.round(ev.target.result.length/1024)}KB`);
-                            resolve(ev.target.result);
-                        };
-                        reader.onerror = (err) => {
-                            console.error('[PHOTO] FileReader error:', err);
-                            reject(new Error('Failed to read photo file'));
-                        };
-                        reader.onabort = () => {
-                            console.error('[PHOTO] FileReader aborted');
-                            reject(new Error('Photo read was aborted'));
-                        };
-                        reader.readAsDataURL(file);
-                    });
-
-                    // Compress image to reduce storage size (max 1200px width, 70% quality)
-                    console.log('[PHOTO] Compressing image...');
-                    showToast('Compressing photo...', 'info');
-                    let dataUrl = await compressImage(rawDataUrl, 1200, 0.7);
-
-                    // Check storage before saving
-                    const storageUsed = getStorageUsage();
-                    let photoSize = dataUrl.length * 2;
-                    console.log(`[PHOTO] Storage: ${Math.round(storageUsed/1024/1024*10)/10}MB used, photo: ${Math.round(photoSize/1024)}KB`);
-
-                    // If storage is getting full, try more aggressive compression
-                    if (storageUsed + photoSize > 4.5 * 1024 * 1024) {
-                        console.warn('[PHOTO] Storage nearly full, trying higher compression...');
-                        showToast('Storage low, compressing more...', 'warning');
-                        dataUrl = await compressImage(rawDataUrl, 800, 0.5);
-                        photoSize = dataUrl.length * 2;
-                        console.log(`[PHOTO] Re-compressed to: ${Math.round(photoSize/1024)}KB`);
-
-                        if (storageUsed + photoSize > 4.8 * 1024 * 1024) {
-                            throw new Error('Storage full - remove old photos first');
-                        }
-                    }
-
                     // Create timestamp
                     const now = new Date();
                     const timestamp = now.toISOString();
                     const date = now.toLocaleDateString();
                     const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
+                    const photoId = `photo_${Date.now()}_${i}`;
+
+                    // Compress image before uploading
+                    showToast('Compressing photo...', 'info');
+                    console.log('[PHOTO] Reading file for compression...');
+                    const rawDataUrl = await readFileAsDataURL(file);
+                    const compressedDataUrl = await compressImage(rawDataUrl, 1200, 0.7);
+
+                    // Convert compressed data URL to Blob for upload
+                    const compressedBlob = await dataURLtoBlob(compressedDataUrl);
+                    console.log(`[PHOTO] Compressed: ${Math.round(file.size/1024)}KB -> ${Math.round(compressedBlob.size/1024)}KB`);
+
+                    // Upload to Supabase Storage
+                    showToast('Uploading photo...', 'info');
+                    console.log('[PHOTO] Uploading to Supabase Storage...');
+                    const { storagePath, publicUrl } = await uploadPhotoToSupabase(compressedBlob, photoId);
+
                     // Create photo object
                     const photoObj = {
-                        id: `photo_${Date.now()}_${i}`,
-                        url: dataUrl,
+                        id: photoId,
+                        url: publicUrl,
+                        storagePath: storagePath,
                         caption: '',
                         timestamp: timestamp,
                         date: date,
@@ -3124,18 +3730,23 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                         id: photoObj.id,
                         timestamp: photoObj.timestamp,
                         gps: photoObj.gps,
-                        dataLength: dataUrl.length
+                        storagePath: storagePath
                     });
 
+                    // Add to local report
                     report.photos.push(photoObj);
-                    saveReport();
+
+                    // Save photo metadata to Supabase
+                    await savePhotoMetadata(photoObj);
+
+                    // Update UI
                     renderSection('photos');
-                    showToast('Photo added', 'success');
+                    showToast('Photo uploaded', 'success');
 
                     console.log(`[PHOTO] Success! Total photos: ${report.photos.length}`);
 
                 } catch (err) {
-                    console.error('[PHOTO] Failed to process photo:', err);
+                    console.error('[PHOTO] Failed to upload photo:', err);
                     showToast(`Photo error: ${err.message}`, 'error');
                 }
             }
@@ -3144,21 +3755,37 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             e.target.value = '';
         }
 
-        function removePhoto(index) {
+        async function removePhoto(index) {
             console.log(`[PHOTO] Removing photo at index ${index}`);
+            const photo = report.photos[index];
+
+            // Delete from Supabase
+            if (photo) {
+                await deletePhotoFromSupabase(photo.id, photo.storagePath);
+            }
+
             report.photos.splice(index, 1);
             saveReport();
             renderSection('photos');
             showToast('Photo removed', 'info');
         }
 
-        // Update photo caption and save to localStorage
-        function updatePhotoCaption(index, value) {
+        // Update photo caption and save to Supabase
+        async function updatePhotoCaption(index, value) {
             const maxLength = 500;
             const caption = value.slice(0, maxLength);
             if (report.photos[index]) {
                 report.photos[index].caption = caption;
                 saveReport();
+
+                // Also update in Supabase directly
+                if (report.photos[index].id && currentReportId) {
+                    await supabaseClient
+                        .from('report_photos')
+                        .update({ caption: caption })
+                        .eq('id', report.photos[index].id);
+                }
+
                 // Update character counter
                 const counter = document.getElementById(`caption-counter-${index}`);
                 if (counter) {
@@ -3636,7 +4263,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             // Store guided notes for AI processing
             report.guidedNotes.issues = report.generalIssues?.join('\n') || '';
             report.guidedNotes.safety = report.safety.noIncidents ? 'No incidents reported' : (report.safety.hasIncidents ? 'INCIDENT REPORTED: ' + report.safety.notes.join('; ') : '');
-            saveReport();
+
+            // Ensure report is saved to Supabase first
+            await saveReportToSupabase();
 
             // Build payload
             const payload = buildProcessPayload();
@@ -3648,16 +4277,25 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 return;
             }
 
+            // Save AI request to Supabase
+            await saveAIRequest(payload);
+
+            const startTime = Date.now();
+
             // Call webhook
             try {
                 const result = await callProcessWebhook(payload);
+                const processingTime = Date.now() - startTime;
 
-                // Save AI response
+                // Save AI response to Supabase
+                await saveAIResponse(result.aiGenerated, processingTime);
+
+                // Save AI response to local report
                 if (result.aiGenerated) {
                     report.aiGenerated = result.aiGenerated;
                 }
                 report.meta.status = 'refined';
-                saveReport();
+                await saveReportToSupabase();
 
                 // Navigate to report
                 window.location.href = 'report.html';
@@ -3704,50 +4342,89 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         document.getElementById('photoInput').addEventListener('change', handlePhotoInput);
 
         // ============ INIT ============
+        function updateLoadingStatus(message) {
+            const statusEl = document.getElementById('loadingStatus');
+            if (statusEl) statusEl.textContent = message;
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.style.transition = 'opacity 0.3s ease-out';
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 300);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
-            // Load active project and contractors first
-            loadActiveProject();
+            try {
+                // Load user settings from Supabase
+                updateLoadingStatus('Loading user settings...');
+                await loadUserSettings();
 
-            report = getReport();
+                // Load active project and contractors from Supabase
+                updateLoadingStatus('Loading project data...');
+                await loadActiveProject();
 
-            // If user came back to edit a "completed" report (from report.html), mark it as in-progress again
-            // This ensures the dashboard shows "In Progress" instead of "Ready for Review" while editing
-            if (report.meta?.interviewCompleted && !report.meta?.submitted) {
-                report.meta.interviewCompleted = false;
-                saveReport();
-            }
+                // Load report from Supabase
+                updateLoadingStatus('Loading report data...');
+                report = await getReport();
 
-            // Auto-populate project info from active project if not already set
-            if (activeProject && !report.project?.name) {
-                report.project.name = activeProject.name || '';
-                report.overview.projectName = activeProject.name || '';
-                saveReport();
-            }
-
-            // Check if we need to show mode selection or jump to a specific mode
-            if (shouldShowModeSelection()) {
-                showModeSelectionScreen();
-                // Fetch weather in background for when user selects a mode
-                if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
-                    fetchWeather();
+                // If user came back to edit a "completed" report (from report.html), mark it as in-progress again
+                // This ensures the dashboard shows "In Progress" instead of "Ready for Review" while editing
+                if (report.meta?.interviewCompleted && !report.meta?.submitted) {
+                    report.meta.interviewCompleted = false;
+                    saveReport();
                 }
-            } else {
-                // Show the appropriate mode UI
-                const mode = report.meta?.captureMode || 'guided';
-                showModeUI(mode);
 
-                // Fetch weather if needed
-                if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
-                    await fetchWeather();
-                    // Update weather display in minimal mode if active
-                    if (mode === 'minimal') {
-                        updateMinimalWeatherDisplay();
+                // Auto-populate project info from active project if not already set
+                if (activeProject && !report.project?.name) {
+                    report.project.name = activeProject.name || '';
+                    report.overview.projectName = activeProject.name || '';
+                    saveReport();
+                }
+
+                // Auto-populate reporter name from user settings
+                if (userSettings && !report.reporter?.name) {
+                    report.reporter.name = userSettings.full_name || '';
+                    report.overview.completedBy = userSettings.full_name || '';
+                    saveReport();
+                }
+
+                // Hide loading overlay
+                hideLoadingOverlay();
+
+                // Check if we need to show mode selection or jump to a specific mode
+                if (shouldShowModeSelection()) {
+                    showModeSelectionScreen();
+                    // Fetch weather in background for when user selects a mode
+                    if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
+                        fetchWeather();
+                    }
+                } else {
+                    // Show the appropriate mode UI
+                    const mode = report.meta?.captureMode || 'guided';
+                    showModeUI(mode);
+
+                    // Fetch weather if needed
+                    if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
+                        await fetchWeather();
+                        // Update weather display in minimal mode if active
+                        if (mode === 'minimal') {
+                            updateMinimalWeatherDisplay();
+                        }
                     }
                 }
-            }
 
-            checkAndShowWarningBanner();
-            checkDictationHintBanner();
+                checkAndShowWarningBanner();
+                checkDictationHintBanner();
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                hideLoadingOverlay();
+                showToast('Failed to load data. Please refresh.', 'error');
+            }
         });
     </script>
 
