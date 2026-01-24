@@ -427,6 +427,38 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 </div>
             </div>
 
+            <!-- Contractor Work Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="contractor-work">
+                <button onclick="toggleSection('contractor-work')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-dot-blue flex items-center justify-center">
+                        <i class="fas fa-hard-hat text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">Contractor Work</p>
+                        <p id="contractor-work-preview" class="text-sm text-slate-500 truncate">Tap to add work details</p>
+                    </div>
+                    <div id="contractor-work-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <!-- Warning when no project selected -->
+                        <div id="no-project-warning" class="hidden bg-yellow-50 border border-yellow-300 p-3 text-center">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 mb-1"></i>
+                            <p class="text-sm text-yellow-700">No project selected. <a href="index.html" class="underline font-bold">Select a project</a> to see contractors.</p>
+                        </div>
+                        <!-- Contractor work cards container -->
+                        <div id="contractor-work-list" class="space-y-3"></div>
+                        <!-- Add Contractor button -->
+                        <button onclick="showAddContractorModal()" class="w-full p-3 bg-dot-blue hover:bg-dot-navy text-white font-bold uppercase transition-colors flex items-center justify-center gap-2 text-sm">
+                            <i class="fas fa-plus"></i>
+                            Add Contractor
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Issues Section -->
             <div class="section-card bg-white border-2 border-slate-200" data-section="issues">
                 <button onclick="toggleSection('issues')" class="w-full p-4 flex items-center gap-4">
@@ -573,6 +605,61 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             <div class="p-4 pt-0 space-y-2">
                 <button id="permissionsContinueBtn" onclick="closePermissionsModal()" class="w-full p-4 bg-dot-navy hover:bg-dot-blue text-white font-bold uppercase transition-colors">Continue</button>
                 <button onclick="closePermissionsModal()" class="w-full p-3 text-slate-500 hover:text-slate-700 text-sm font-medium">Skip for now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Contractor Modal -->
+    <div id="addContractorModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm">
+            <div class="bg-dot-blue text-white p-4 text-center">
+                <div class="w-12 h-12 bg-white/20 flex items-center justify-center mx-auto mb-2">
+                    <i class="fas fa-user-plus text-white text-xl"></i>
+                </div>
+                <p class="text-lg font-bold uppercase">Add Contractor</p>
+                <p class="text-sm text-blue-200 mt-1">Add a new contractor to this project</p>
+            </div>
+            <div class="p-4 space-y-4">
+                <!-- Contractor Name -->
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase">
+                        Contractor Name <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="newContractorName" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue" placeholder="e.g., ABC Construction Co.">
+                </div>
+                <!-- Abbreviation and Type -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase">
+                            Abbreviation <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="newContractorAbbr" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue uppercase" placeholder="ABC" maxlength="10" oninput="this.value = this.value.toUpperCase()">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase">
+                            Type <span class="text-red-500">*</span>
+                        </label>
+                        <select id="newContractorType" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-dot-blue">
+                            <option value="prime">Prime</option>
+                            <option value="subcontractor">Subcontractor</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Trades -->
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase">Trades (Optional)</label>
+                    <input type="text" id="newContractorTrades" class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue" placeholder="e.g., Concrete; Paving; Utilities">
+                    <p class="text-xs text-slate-400 mt-1">Separate multiple trades with semicolons</p>
+                </div>
+            </div>
+            <div class="p-4 pt-0 space-y-2">
+                <button onclick="saveNewContractor()" class="w-full p-4 bg-safety-green hover:bg-green-700 text-white font-bold uppercase transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-save"></i>
+                    Save Contractor
+                </button>
+                <button onclick="hideAddContractorModal()" class="w-full p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
@@ -1521,6 +1608,182 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             }
 
             return `${withWork.length} working, ${noWork.length} idle`;
+        }
+
+        // ============ ADD CONTRACTOR MODAL ============
+        function showAddContractorModal() {
+            // Clear form fields
+            document.getElementById('newContractorName').value = '';
+            document.getElementById('newContractorAbbr').value = '';
+            document.getElementById('newContractorType').value = 'subcontractor';
+            document.getElementById('newContractorTrades').value = '';
+
+            // Show modal
+            document.getElementById('addContractorModal').classList.remove('hidden');
+
+            // Focus on name field
+            setTimeout(() => {
+                document.getElementById('newContractorName').focus();
+            }, 100);
+        }
+
+        function hideAddContractorModal() {
+            document.getElementById('addContractorModal').classList.add('hidden');
+        }
+
+        function saveNewContractor() {
+            const name = document.getElementById('newContractorName').value.trim();
+            const abbreviation = document.getElementById('newContractorAbbr').value.trim().toUpperCase();
+            const type = document.getElementById('newContractorType').value;
+            const trades = document.getElementById('newContractorTrades').value.trim();
+
+            // Validation
+            if (!name) {
+                showToast('Contractor name is required', 'error');
+                document.getElementById('newContractorName').focus();
+                return;
+            }
+
+            if (!abbreviation) {
+                showToast('Abbreviation is required', 'error');
+                document.getElementById('newContractorAbbr').focus();
+                return;
+            }
+
+            if (abbreviation.length > 10) {
+                showToast('Abbreviation must be 10 characters or less', 'error');
+                document.getElementById('newContractorAbbr').focus();
+                return;
+            }
+
+            // Generate unique contractor ID
+            const contractorId = `contractor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Create new contractor object
+            const newContractor = {
+                id: contractorId,
+                name: name,
+                abbreviation: abbreviation,
+                type: type,
+                trades: trades || ''
+            };
+
+            // Add to active project in localStorage
+            if (!activeProject) {
+                showToast('No project selected', 'error');
+                return;
+            }
+
+            if (!activeProject.contractors) {
+                activeProject.contractors = [];
+            }
+            activeProject.contractors.push(newContractor);
+
+            // Update localStorage
+            const projectsJson = localStorage.getItem(PROJECTS_KEY);
+            if (projectsJson) {
+                try {
+                    const projects = JSON.parse(projectsJson);
+                    const projectIndex = projects.findIndex(p => p.id === activeProject.id);
+                    if (projectIndex >= 0) {
+                        projects[projectIndex] = activeProject;
+                        localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+                    }
+                } catch (e) {
+                    console.error('Failed to save contractor to project:', e);
+                    showToast('Failed to save contractor', 'error');
+                    return;
+                }
+            }
+
+            // Update local projectContractors array (sorted: primes first)
+            projectContractors = [...activeProject.contractors].sort((a, b) => {
+                if (a.type === 'prime' && b.type !== 'prime') return -1;
+                if (a.type !== 'prime' && b.type === 'prime') return 1;
+                return 0;
+            });
+
+            // Initialize empty activity data for this contractor in the report
+            if (!report.activities) report.activities = [];
+            report.activities.push({
+                contractorId: contractorId,
+                noWork: true,
+                narrative: '',
+                equipmentUsed: '',
+                crew: ''
+            });
+
+            // Initialize operations data for personnel section
+            if (!report.operations) report.operations = [];
+            report.operations.push({
+                contractorId: contractorId,
+                superintendents: null,
+                foremen: null,
+                operators: null,
+                laborers: null,
+                surveyors: null,
+                others: null
+            });
+
+            saveReport();
+
+            // Re-render contractor work cards
+            renderContractorWorkCards();
+
+            // Re-render personnel cards if they exist
+            if (document.getElementById('personnel-list')) {
+                renderPersonnelCards();
+            }
+
+            // Re-render equipment cards to update contractor dropdown
+            if (document.getElementById('equipment-list')) {
+                renderEquipmentCards();
+            }
+
+            // Update previews
+            updateAllPreviews();
+            updateContractorWorkPreview();
+
+            // Hide modal and show success message
+            hideAddContractorModal();
+            showToast(`${name} added successfully`, 'success');
+
+            // Expand the new contractor's card
+            setTimeout(() => {
+                const content = document.getElementById(`contractor-content-${contractorId}`);
+                const chevron = document.getElementById(`contractor-chevron-${contractorId}`);
+                if (content && content.classList.contains('hidden')) {
+                    content.classList.remove('hidden');
+                    if (chevron) chevron.classList.add('rotate-180');
+                }
+            }, 100);
+        }
+
+        function updateContractorWorkPreview() {
+            const preview = document.getElementById('contractor-work-preview');
+            const status = document.getElementById('contractor-work-status');
+
+            if (!preview || !status) return;
+
+            if (!activeProject || projectContractors.length === 0) {
+                preview.textContent = 'No contractors';
+                status.innerHTML = '<i class="fas fa-chevron-down text-slate-400 text-xs"></i>';
+                return;
+            }
+
+            const activities = report.activities || [];
+            const withWork = activities.filter(a => !a.noWork || a.narrative);
+            const total = projectContractors.length;
+
+            if (withWork.length > 0) {
+                preview.textContent = `${withWork.length}/${total} contractors working`;
+                status.innerHTML = '<i class="fas fa-check text-safety-green text-xs"></i>';
+                status.className = 'w-8 h-8 bg-safety-green/20 border-2 border-safety-green flex items-center justify-center';
+            } else {
+                preview.textContent = `${total} contractor${total > 1 ? 's' : ''} - tap to add work`;
+                status.innerHTML = '<i class="fas fa-chevron-down text-slate-400 text-xs"></i>';
+                status.className = 'w-8 h-8 border border-slate-300 flex items-center justify-center';
+            }
         }
 
         // ============ PERSONNEL / OPERATIONS ============
@@ -2649,6 +2912,11 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                     // Contractor-based work cards are rendered by renderContractorWorkCards()
                     renderContractorWorkCards();
                     break;
+                case 'contractor-work':
+                    // Contractor work section - uses the same rendering
+                    renderContractorWorkCards();
+                    updateContractorWorkPreview();
+                    break;
                 case 'operations':
                     // Personnel cards are rendered by renderPersonnelCards()
                     renderPersonnelCards();
@@ -2734,8 +3002,8 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         }
 
         function renderAllSections() {
-            // Simplified guided mode - only 5 sections
-            ['issues', 'safety', 'photos'].forEach(renderSection);
+            // Simplified guided mode sections + contractor work
+            ['contractor-work', 'issues', 'safety', 'photos'].forEach(renderSection);
             updateWeatherDisplay();
         }
 
@@ -2758,15 +3026,22 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
             document.getElementById('issues-preview').textContent = naMarked.issues ? 'N/A - No issues' : report.generalIssues.length > 0 ? `${report.generalIssues.length} issues` : 'None reported';
             document.getElementById('safety-preview').textContent = report.safety.hasIncidents ? 'INCIDENT REPORTED' : report.safety.noIncidents ? 'No incidents (confirmed)' : report.safety.notes.length > 0 ? 'Notes added' : 'Tap to confirm';
             document.getElementById('photos-preview').textContent = naMarked.photos ? 'N/A - No photos' : report.photos.length > 0 ? `${report.photos.length} photos` : 'No photos';
+
+            // Update contractor work preview
+            updateContractorWorkPreview();
+
             updateStatusIcons();
         }
 
         function updateStatusIcons() {
             const naMarked = report.meta.naMarked || {};
-            // Simplified guided mode - only 5 sections
+            // Check if any contractor has work logged
+            const hasContractorWork = report.activities?.some(a => !a.noWork || a.narrative) || false;
+            // Sections with status icons
             const sections = {
                 'weather': report.overview.weather.jobSiteCondition,
                 'activities': report.guidedNotes?.workSummary?.trim(),
+                'contractor-work': hasContractorWork,
                 'issues': report.generalIssues.length > 0 || naMarked.issues,
                 'safety': report.safety.noIncidents || report.safety.hasIncidents || report.safety.notes.length > 0,
                 'photos': report.photos.length > 0 || naMarked.photos
