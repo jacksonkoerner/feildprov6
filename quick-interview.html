@@ -1398,9 +1398,10 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                     received_at: new Date().toISOString()
                 };
 
+                // Use upsert to handle retries/reprocessing - prevents duplicate rows
                 const { error } = await supabaseClient
                     .from('report_ai_response')
-                    .insert(responseData);
+                    .upsert(responseData, { onConflict: 'report_id' });
 
                 if (error) {
                     console.error('Error saving AI response:', error);
@@ -2493,6 +2494,9 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
          * Load report from Supabase
          */
         async function getReport() {
+            // Clear any stale report ID before loading
+            currentReportId = null;
+
             const todayStr = new Date().toISOString().split('T')[0];
 
             if (!activeProject) {
@@ -2725,7 +2729,15 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 // 1. Upsert the main report record
                 let reportId = currentReportId;
                 if (!reportId) {
-                    reportId = generateId();
+                    // Check if a report already exists for this project+date before generating new ID
+                    const { data: existingReport } = await supabaseClient
+                        .from('reports')
+                        .select('id')
+                        .eq('project_id', activeProject.id)
+                        .eq('report_date', todayStr)
+                        .maybeSingle();
+
+                    reportId = existingReport?.id || generateId();
                 }
 
                 const reportData = {

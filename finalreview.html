@@ -1210,6 +1210,9 @@
         }
 
         async function loadReport() {
+            // Clear any stale report ID before loading
+            currentReportId = null;
+
             const params = new URLSearchParams(window.location.search);
             const reportIdParam = params.get('reportId');
             const reportDateStr = getReportDateStr();
@@ -1261,12 +1264,13 @@
 
                 // Load related data in parallel
                 const [rawCaptureResult, contractorWorkResult, personnelResult, equipmentUsageResult, photosResult, aiResponseResult, userEditsResult] = await Promise.all([
-                    supabaseClient.from('report_raw_capture').select('*').eq('report_id', reportRow.id).single(),
+                    supabaseClient.from('report_raw_capture').select('*').eq('report_id', reportRow.id).maybeSingle(),
                     supabaseClient.from('report_contractor_work').select('*').eq('report_id', reportRow.id),
                     supabaseClient.from('report_personnel').select('*').eq('report_id', reportRow.id),
                     supabaseClient.from('report_equipment_usage').select('*').eq('report_id', reportRow.id),
                     supabaseClient.from('report_photos').select('*').eq('report_id', reportRow.id).order('created_at', { ascending: true }),
-                    supabaseClient.from('report_ai_response').select('*').eq('report_id', reportRow.id).single(),
+                    // Get most recent AI response (handles multiple rows from retries)
+                    supabaseClient.from('report_ai_response').select('*').eq('report_id', reportRow.id).order('received_at', { ascending: false }).limit(1).maybeSingle(),
                     supabaseClient.from('report_user_edits').select('*').eq('report_id', reportRow.id)
                 ]);
 

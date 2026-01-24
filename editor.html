@@ -19,6 +19,7 @@
     <meta name="apple-mobile-web-app-title" content="FieldVoice">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
@@ -99,9 +100,20 @@
     </div>
 
     <script>
-        // ============ CONFIG ============
-        const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+        // ============ SUPABASE CONFIGURATION ============
+        const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1emFkb3RiZ2tqaGd3a3ZvdGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.RiW5IFA_i8Fj4QIc1Swe1ERx3rEwPyOnQ5tOicAFXI0';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // ============ STATE ============
+        const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+        let activeProject = null;
+        let currentReportId = null;
+        let report = null;
+        let isSaving = false;
+        let saveTimeout = null;
+
+        // ============ CONFIG ============
         const SECTIONS = {
             photos: { title: 'Progress Photos', icon: 'fa-camera', color: 'indigo' },
             activities: { title: 'Work Summary', icon: 'fa-tasks', color: 'emerald' },
@@ -170,28 +182,62 @@
             alert('To dictate text:\n\n1. Tap a text input field\n2. Tap the microphone button on your keyboard\n3. Speak your notes\n\nThe app uses your device\'s native keyboard dictation.');
         }
 
+        // ============ HELPER FUNCTIONS ============
+        function generateId() {
+            return crypto.randomUUID();
+        }
+
+        function getTodayStr() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        // Convert Supabase project row to JS format
+        function fromSupabaseProject(row) {
+            return {
+                id: row.id,
+                name: row.project_name || '',
+                noabProjectNo: row.noab_project_no || '',
+                location: row.location || '',
+                primeContractor: row.prime_contractor || ''
+            };
+        }
+
+        // ============ PROJECT LOADING ============
+        async function loadActiveProject() {
+            const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
+            if (!activeId) {
+                activeProject = null;
+                return null;
+            }
+
+            try {
+                const { data: projectRow, error: projectError } = await supabaseClient
+                    .from('projects')
+                    .select('*')
+                    .eq('id', activeId)
+                    .single();
+
+                if (projectError || !projectRow) {
+                    console.error('Failed to load project from Supabase:', projectError);
+                    activeProject = null;
+                    return null;
+                }
+
+                activeProject = fromSupabaseProject(projectRow);
+                return activeProject;
+            } catch (e) {
+                console.error('Failed to load project:', e);
+                activeProject = null;
+                return null;
+            }
+        }
+
         // ============ STORAGE ============
-        function getTodayKey() {
-            return `fieldvoice_report_${new Date().toISOString().split('T')[0]}`;
-        }
-
-        function getReport() {
-            const saved = localStorage.getItem(getTodayKey());
-            if (saved) {
-                try { return JSON.parse(saved); } catch (e) {}
-            }
-            const legacy = localStorage.getItem('fieldvoice_report');
-            if (legacy) {
-                try { return JSON.parse(legacy); } catch (e) {}
-            }
-            return createFreshReport();
-        }
-
         function createFreshReport() {
             return {
-                meta: { createdAt: new Date().toISOString(), version: 2 },
+                meta: { createdAt: new Date().toISOString(), version: 2, status: 'draft' },
                 overview: {
-                    projectName: "",
+                    projectName: activeProject?.name || "",
                     date: new Date().toLocaleDateString(),
                     weather: { generalCondition: '--', jobSiteCondition: 'Dry' }
                 },
@@ -207,9 +253,257 @@
             };
         }
 
-        function saveReport(report) {
-            localStorage.setItem(getTodayKey(), JSON.stringify(report));
-            localStorage.setItem('fieldvoice_report', JSON.stringify(report));
+        async function getReport() {
+            // Clear any stale report ID before loading
+            currentReportId = null;
+
+            if (!activeProject) {
+                return createFreshReport();
+            }
+
+            const todayStr = getTodayStr();
+
+            try {
+                // Query for existing report for this project and date
+                const { data: reportRow, error: reportError } = await supabaseClient
+                    .from('reports')
+                    .select('*')
+                    .eq('project_id', activeProject.id)
+                    .eq('report_date', todayStr)
+                    .maybeSingle();
+
+                if (reportError) {
+                    console.error('Error fetching report:', reportError);
+                    return createFreshReport();
+                }
+
+                if (!reportRow) {
+                    return createFreshReport();
+                }
+
+                // Store the report ID for updates
+                currentReportId = reportRow.id;
+
+                // Load related data in parallel
+                const [rawCaptureResult, contractorWorkResult, personnelResult, equipmentResult, photosResult] = await Promise.all([
+                    supabaseClient.from('report_raw_capture').select('*').eq('report_id', reportRow.id).maybeSingle(),
+                    supabaseClient.from('report_contractor_work').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_personnel').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_equipment_usage').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_photos').select('*').eq('report_id', reportRow.id).order('created_at', { ascending: true })
+                ]);
+
+                // Build the report object
+                const loadedReport = createFreshReport();
+                loadedReport.meta = {
+                    createdAt: reportRow.created_at,
+                    lastSaved: reportRow.updated_at,
+                    version: 2,
+                    status: reportRow.status || 'draft'
+                };
+
+                // Map contractor work to activities
+                if (contractorWorkResult.data) {
+                    loadedReport.activities = contractorWorkResult.data.map(cw => ({
+                        contractor: cw.contractor_name || '',
+                        narrative: cw.work_narrative || '',
+                        location: cw.work_location || ''
+                    }));
+                }
+
+                // Map personnel
+                if (personnelResult.data) {
+                    loadedReport.operations = personnelResult.data.map(p => ({
+                        contractor: p.contractor_name || '',
+                        supers: p.superintendents || 0,
+                        foreman: p.foremen || 0,
+                        operators: p.operators || 0,
+                        laborers: p.laborers || 0
+                    }));
+                }
+
+                // Map equipment
+                if (equipmentResult.data) {
+                    loadedReport.equipment = equipmentResult.data.map(e => ({
+                        contractor: e.contractor_name || '',
+                        model: e.equipment_type || '',
+                        quantity: e.quantity || 1
+                    }));
+                }
+
+                // Map photos
+                if (photosResult.data) {
+                    loadedReport.photos = photosResult.data.map(p => ({
+                        id: p.id,
+                        url: p.photo_data || '',
+                        caption: p.caption || '',
+                        timestamp: p.created_at,
+                        date: new Date(p.created_at).toLocaleDateString(),
+                        time: new Date(p.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                        gps: p.gps_coordinates
+                    }));
+                }
+
+                // Map raw capture data for issues and safety
+                if (rawCaptureResult.data) {
+                    const raw = rawCaptureResult.data;
+                    if (raw.issues_notes) {
+                        loadedReport.generalIssues = raw.issues_notes.split('\n').filter(Boolean);
+                    }
+                    if (raw.safety_notes) {
+                        loadedReport.safety.notes = raw.safety_notes.split('\n').filter(Boolean);
+                    }
+                }
+
+                return loadedReport;
+            } catch (e) {
+                console.error('Failed to load report:', e);
+                return createFreshReport();
+            }
+        }
+
+        function saveReport(updatedReport) {
+            // Debounce actual save to Supabase
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            saveTimeout = setTimeout(() => {
+                saveReportToSupabase(updatedReport);
+            }, 1000);
+        }
+
+        async function saveReportToSupabase(updatedReport) {
+            if (isSaving || !activeProject) return;
+            isSaving = true;
+
+            try {
+                const todayStr = getTodayStr();
+
+                // Get or create report ID
+                let reportId = currentReportId;
+                if (!reportId) {
+                    // Check if a report already exists for this project+date before generating new ID
+                    const { data: existingReport } = await supabaseClient
+                        .from('reports')
+                        .select('id')
+                        .eq('project_id', activeProject.id)
+                        .eq('report_date', todayStr)
+                        .maybeSingle();
+
+                    reportId = existingReport?.id || generateId();
+                }
+
+                // Upsert main report
+                const reportData = {
+                    id: reportId,
+                    project_id: activeProject.id,
+                    report_date: todayStr,
+                    status: updatedReport.meta?.status || 'draft',
+                    updated_at: new Date().toISOString()
+                };
+
+                const { error: reportError } = await supabaseClient
+                    .from('reports')
+                    .upsert(reportData, { onConflict: 'id' });
+
+                if (reportError) {
+                    console.error('Error saving report:', reportError);
+                    isSaving = false;
+                    return;
+                }
+
+                currentReportId = reportId;
+
+                // Save photos
+                if (updatedReport.photos?.length > 0) {
+                    for (const photo of updatedReport.photos) {
+                        const photoData = {
+                            id: photo.id || generateId(),
+                            report_id: reportId,
+                            photo_data: photo.url,
+                            caption: photo.caption || '',
+                            gps_coordinates: photo.gps || null,
+                            created_at: photo.timestamp || new Date().toISOString()
+                        };
+
+                        await supabaseClient
+                            .from('report_photos')
+                            .upsert(photoData, { onConflict: 'id' });
+                    }
+                }
+
+                // Save contractor work (activities)
+                if (updatedReport.activities?.length > 0) {
+                    // Delete existing and insert new
+                    await supabaseClient.from('report_contractor_work').delete().eq('report_id', reportId);
+
+                    for (const activity of updatedReport.activities) {
+                        if (activity.contractor || activity.narrative) {
+                            await supabaseClient.from('report_contractor_work').insert({
+                                report_id: reportId,
+                                contractor_name: activity.contractor,
+                                work_narrative: activity.narrative,
+                                work_location: activity.location || ''
+                            });
+                        }
+                    }
+                }
+
+                // Save personnel (operations)
+                if (updatedReport.operations?.length > 0) {
+                    await supabaseClient.from('report_personnel').delete().eq('report_id', reportId);
+
+                    for (const op of updatedReport.operations) {
+                        if (op.contractor) {
+                            await supabaseClient.from('report_personnel').insert({
+                                report_id: reportId,
+                                contractor_name: op.contractor,
+                                superintendents: op.supers || 0,
+                                foremen: op.foreman || 0,
+                                operators: op.operators || 0,
+                                laborers: op.laborers || 0
+                            });
+                        }
+                    }
+                }
+
+                // Save equipment
+                if (updatedReport.equipment?.length > 0) {
+                    await supabaseClient.from('report_equipment_usage').delete().eq('report_id', reportId);
+
+                    for (const eq of updatedReport.equipment) {
+                        if (eq.model || eq.contractor) {
+                            await supabaseClient.from('report_equipment_usage').insert({
+                                report_id: reportId,
+                                contractor_name: eq.contractor || '',
+                                equipment_type: eq.model || '',
+                                quantity: eq.quantity || 1
+                            });
+                        }
+                    }
+                }
+
+                // Save issues and safety to raw capture
+                const issuesNotes = updatedReport.generalIssues?.join('\n') || '';
+                const safetyNotes = updatedReport.safety?.notes?.join('\n') || '';
+
+                if (issuesNotes || safetyNotes) {
+                    await supabaseClient
+                        .from('report_raw_capture')
+                        .upsert({
+                            report_id: reportId,
+                            issues_notes: issuesNotes,
+                            safety_notes: safetyNotes,
+                            captured_at: new Date().toISOString()
+                        }, { onConflict: 'report_id' });
+                }
+
+                console.log('[SUPABASE] Report saved successfully');
+            } catch (err) {
+                console.error('Failed to save report:', err);
+            } finally {
+                isSaving = false;
+            }
         }
 
         // ============ RENDER ============
@@ -228,7 +522,8 @@
         }
 
         function renderContent() {
-            const report = getReport();
+            if (!report) return;
+
             const content = document.getElementById('contentArea');
             document.getElementById('sectionTitle').textContent = SECTIONS[currentSection].title;
 
@@ -301,8 +596,7 @@
             container.querySelectorAll('textarea[data-photo-idx]').forEach(ta => {
                 ta.addEventListener('change', (e) => {
                     const idx = parseInt(e.target.dataset.photoIdx);
-                    const report = getReport();
-                    if (report.photos[idx]) {
+                    if (report && report.photos[idx]) {
                         report.photos[idx].caption = e.target.value;
                         saveReport(report);
                     }
@@ -343,8 +637,7 @@
             container.querySelectorAll('textarea[data-activity-idx]').forEach(ta => {
                 ta.addEventListener('change', (e) => {
                     const idx = parseInt(e.target.dataset.activityIdx);
-                    const report = getReport();
-                    if (report.activities[idx]) {
+                    if (report && report.activities[idx]) {
                         report.activities[idx].narrative = e.target.value;
                         saveReport(report);
                     }
@@ -391,8 +684,7 @@
                 input.addEventListener('change', (e) => {
                     const idx = parseInt(e.target.dataset.opIdx);
                     const field = e.target.dataset.field;
-                    const report = getReport();
-                    if (report.operations[idx]) {
+                    if (report && report.operations[idx]) {
                         report.operations[idx][field] = parseInt(e.target.value) || 0;
                         saveReport(report);
                     }
@@ -505,9 +797,10 @@
             `;
 
             document.getElementById('hasIncidents').addEventListener('change', (e) => {
-                const report = getReport();
-                report.safety.hasIncidents = e.target.checked;
-                saveReport(report);
+                if (report && report.safety) {
+                    report.safety.hasIncidents = e.target.checked;
+                    saveReport(report);
+                }
             });
         }
 
@@ -520,9 +813,7 @@
 
         async function handlePhotoInput(e) {
             const files = e.target.files;
-            if (!files) return;
-
-            const report = getReport();
+            if (!files || !report) return;
 
             for (const file of files) {
                 // Get GPS (using multi-reading high accuracy)
@@ -556,44 +847,42 @@
         }
 
         function deletePhoto(idx) {
-            if (!confirm('Delete this photo?')) return;
-            const report = getReport();
+            if (!confirm('Delete this photo?') || !report) return;
             report.photos.splice(idx, 1);
             saveReport(report);
             renderContent();
         }
 
         function deleteActivity(idx) {
-            if (!confirm('Delete this activity?')) return;
-            const report = getReport();
+            if (!confirm('Delete this activity?') || !report) return;
             report.activities.splice(idx, 1);
             saveReport(report);
             renderContent();
         }
 
         function deleteEquipment(idx) {
-            const report = getReport();
+            if (!report) return;
             report.equipment.splice(idx, 1);
             saveReport(report);
             renderContent();
         }
 
         function deleteIssue(idx) {
-            const report = getReport();
+            if (!report) return;
             report.generalIssues.splice(idx, 1);
             saveReport(report);
             renderContent();
         }
 
         function deleteQAQC(idx) {
-            const report = getReport();
+            if (!report) return;
             report.qaqcNotes.splice(idx, 1);
             saveReport(report);
             renderContent();
         }
 
         function deleteSafetyNote(idx) {
-            const report = getReport();
+            if (!report) return;
             report.safety.notes.splice(idx, 1);
             saveReport(report);
             renderContent();
@@ -602,7 +891,7 @@
 
         function extractContractor(text) {
             // Check if text mentions any known contractors from the report
-            const report = getReport();
+            if (!report) return null;
             const lower = text.toLowerCase();
 
             // Check against contractors already recorded in the report
@@ -726,10 +1015,16 @@
         }
 
         // ============ INIT ============
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             currentSection = params.get('section') || 'photos';
             if (!SECTIONS[currentSection]) currentSection = 'photos';
+
+            // Load active project from Supabase
+            await loadActiveProject();
+
+            // Load report from Supabase
+            report = await getReport();
 
             renderTabs();
             renderContent();
