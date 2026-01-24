@@ -18,6 +18,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FieldVoice">
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -1003,56 +1004,125 @@
     </div>
 
     <script>
+        // ============ SUPABASE CONFIGURATION ============
+        const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1emFkb3RiZ2tqaGd3a3ZvdGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.RiW5IFA_i8Fj4QIc1Swe1ERx3rEwPyOnQ5tOicAFXI0';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // ============ STATE ============
         let report = null;
+        let currentReportId = null; // Supabase report ID
         let activeProject = null;
         let projectContractors = [];
         let userEdits = {}; // Track user edits separately
+        let userSettings = null;
         let saveTimeout = null;
+        let isSaving = false;
         let isReadonly = false;
         let currentTab = 'form';
 
-        const PROJECTS_KEY = 'fvp_projects';
-        const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+        const ACTIVE_PROJECT_KEY = 'fvp_active_project'; // Keep in localStorage (device-specific)
         const N8N_PROCESS_WEBHOOK = 'https://advidere.app.n8n.cloud/webhook/fieldvoice-refine-v6';
+
+        // ============ FIELD MAPPING UTILITIES ============
+        // Convert Supabase project row to JS format
+        function fromSupabaseProject(row) {
+            return {
+                id: row.id,
+                name: row.project_name || '',
+                noabProjectNo: row.noab_project_no || '',
+                cnoSolicitationNo: row.cno_solicitation_no || 'N/A',
+                location: row.location || '',
+                engineer: row.engineer || '',
+                primeContractor: row.prime_contractor || '',
+                noticeToProceed: row.notice_to_proceed || '',
+                contractDuration: row.contract_duration || '',
+                weatherDays: row.weather_days || 0,
+                expectedCompletion: row.expected_completion || '',
+                defaultStartTime: row.default_start_time || '06:00',
+                defaultEndTime: row.default_end_time || '16:00',
+                logo: row.logo || null,
+                status: row.status || 'active',
+                contractors: [],
+                equipment: []
+            };
+        }
+
+        function fromSupabaseContractor(row) {
+            return {
+                id: row.id,
+                name: row.name || '',
+                abbreviation: row.abbreviation || '',
+                type: row.type || 'subcontractor',
+                trades: Array.isArray(row.trades) ? row.trades.join('; ') : (row.trades || ''),
+                status: row.status || 'active',
+                addedDate: row.added_date || null,
+                removedDate: row.removed_date || null
+            };
+        }
+
+        function fromSupabaseEquipment(row) {
+            return {
+                id: row.id,
+                contractorId: row.contractor_id,
+                type: row.type || '',
+                model: row.model || '',
+                identifier: row.identifier || null,
+                status: row.status || 'active',
+                addedDate: row.added_date || null,
+                removedDate: row.removed_date || null
+            };
+        }
+
+        // Generate UUID for new records
+        function generateId() {
+            return crypto.randomUUID();
+        }
 
         // ============ INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
-            // Load project first
-            loadActiveProject();
+            try {
+                // Load project and user settings from Supabase
+                await Promise.all([
+                    loadActiveProject(),
+                    loadUserSettings()
+                ]);
 
-            // Load report data
-            report = loadReport();
+                // Load report data from Supabase
+                report = await loadReport();
 
-            // Initialize user edits tracking
-            if (!report.userEdits) report.userEdits = {};
-            userEdits = report.userEdits;
+                // Initialize user edits tracking
+                if (!report.userEdits) report.userEdits = {};
+                userEdits = report.userEdits;
 
-            // Mark report as viewed
-            if (!report.meta) report.meta = {};
-            report.meta.reportViewed = true;
-            saveReportSilent();
+                // Mark report as viewed
+                if (!report.meta) report.meta = {};
+                report.meta.reportViewed = true;
+                await saveReportSilent();
 
-            // Populate all fields
-            populateAllFields();
+                // Populate all fields
+                populateAllFields();
 
-            // Populate original notes view
-            populateOriginalNotes();
+                // Populate original notes view
+                populateOriginalNotes();
 
-            // Check for pending refine status
-            checkPendingRefineStatus();
+                // Check for pending refine status
+                checkPendingRefineStatus();
 
-            // Setup auto-save listeners
-            setupAutoSave();
+                // Setup auto-save listeners
+                setupAutoSave();
 
-            // Initialize auto-expand textareas
-            initAutoExpandTextareas();
+                // Initialize auto-expand textareas
+                initAutoExpandTextareas();
 
-            // Update header date
-            updateHeaderDate();
+                // Update header date
+                updateHeaderDate();
 
-            // Initialize debug panel
-            initializeDebugPanel();
+                // Initialize debug panel
+                initializeDebugPanel();
+            } catch (err) {
+                console.error('Failed to initialize report page:', err);
+            }
         });
 
         // ============ TAB SWITCHING ============
@@ -1210,38 +1280,49 @@
         }
 
         // Save report without showing indicator (for silent updates)
-        function saveReportSilent() {
+        async function saveReportSilent() {
             try {
-                const key = getReportKey();
-                report.meta = report.meta || {};
-                report.meta.lastSaved = new Date().toISOString();
-                localStorage.setItem(key, JSON.stringify(report));
-                localStorage.setItem('fieldvoice_report', JSON.stringify(report));
+                await saveReportToSupabase();
             } catch (err) {
                 console.error('Failed to save report:', err);
             }
         }
 
         // ============ PROJECT LOADING ============
-        function loadActiveProject() {
+        async function loadActiveProject() {
             const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
             if (!activeId) {
                 activeProject = null;
                 projectContractors = [];
-                return;
-            }
-
-            const projectsJson = localStorage.getItem(PROJECTS_KEY);
-            if (!projectsJson) {
-                activeProject = null;
-                projectContractors = [];
-                return;
+                return null;
             }
 
             try {
-                const projects = JSON.parse(projectsJson);
-                activeProject = projects.find(p => p.id === activeId) || null;
-                if (activeProject && activeProject.contractors) {
+                // Fetch project from Supabase
+                const { data: projectRow, error: projectError } = await supabaseClient
+                    .from('projects')
+                    .select('*')
+                    .eq('id', activeId)
+                    .single();
+
+                if (projectError || !projectRow) {
+                    console.error('Failed to load project from Supabase:', projectError);
+                    activeProject = null;
+                    projectContractors = [];
+                    return null;
+                }
+
+                activeProject = fromSupabaseProject(projectRow);
+
+                // Fetch contractors for this project
+                const { data: contractorRows, error: contractorError } = await supabaseClient
+                    .from('contractors')
+                    .select('*')
+                    .eq('project_id', activeId);
+
+                if (!contractorError && contractorRows) {
+                    activeProject.contractors = contractorRows.map(fromSupabaseContractor);
+                    // Sort: prime contractors first, then subcontractors
                     projectContractors = [...activeProject.contractors].sort((a, b) => {
                         if (a.type === 'prime' && b.type !== 'prime') return -1;
                         if (a.type !== 'prime' && b.type === 'prime') return 1;
@@ -1250,56 +1331,207 @@
                 } else {
                     projectContractors = [];
                 }
+
+                // Fetch equipment for this project
+                const { data: equipmentRows, error: equipmentError } = await supabaseClient
+                    .from('equipment')
+                    .select('*')
+                    .eq('project_id', activeId);
+
+                if (!equipmentError && equipmentRows) {
+                    activeProject.equipment = equipmentRows.map(fromSupabaseEquipment);
+                }
+
+                return activeProject;
             } catch (e) {
                 console.error('Failed to load project:', e);
                 activeProject = null;
                 projectContractors = [];
+                return null;
+            }
+        }
+
+        async function loadUserSettings() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('user_profiles')
+                    .select('*')
+                    .limit(1)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    console.error('Failed to load user settings:', error);
+                    return null;
+                }
+
+                if (data) {
+                    userSettings = {
+                        id: data.id,
+                        full_name: data.full_name || '',
+                        title: data.title || '',
+                        company: data.company || '',
+                        email: data.email || '',
+                        phone: data.phone || ''
+                    };
+                    return userSettings;
+                }
+                return null;
+            } catch (e) {
+                console.error('Failed to load user settings:', e);
+                return null;
             }
         }
 
         // ============ REPORT LOADING ============
-        function getReportKey() {
+        function getReportDateStr() {
             const params = new URLSearchParams(window.location.search);
             const dateParam = params.get('date');
-            const todayStr = dateParam || new Date().toISOString().split('T')[0];
-
-            if (activeProject) {
-                return `fieldvoice_report_${activeProject.id}_${todayStr}`;
-            }
-            return `fieldvoice_report_${todayStr}`;
+            return dateParam || new Date().toISOString().split('T')[0];
         }
 
-        function loadReport() {
-            const key = getReportKey();
-            let saved = localStorage.getItem(key);
-
-            // Try project-specific key first
-            if (saved) {
-                try {
-                    return JSON.parse(saved);
-                } catch (e) {}
+        async function loadReport() {
+            if (!activeProject) {
+                return createFreshReport();
             }
 
-            // Try legacy key
-            const todayStr = new Date().toISOString().split('T')[0];
-            const legacyKey = `fieldvoice_report_${todayStr}`;
-            saved = localStorage.getItem(legacyKey);
-            if (saved) {
-                try {
-                    return JSON.parse(saved);
-                } catch (e) {}
-            }
+            const reportDateStr = getReportDateStr();
 
-            // Try very old legacy key
-            saved = localStorage.getItem('fieldvoice_report');
-            if (saved) {
-                try {
-                    return JSON.parse(saved);
-                } catch (e) {}
-            }
+            try {
+                // Try to find existing report for this project and date
+                const { data: reportRow, error: reportError } = await supabaseClient
+                    .from('reports')
+                    .select('*')
+                    .eq('project_id', activeProject.id)
+                    .eq('report_date', reportDateStr)
+                    .single();
 
-            // Return fresh report
-            return createFreshReport();
+                if (reportError && reportError.code !== 'PGRST116') {
+                    console.error('Error loading report:', reportError);
+                }
+
+                if (!reportRow) {
+                    // No existing report, create fresh
+                    return createFreshReport();
+                }
+
+                // Store the report ID
+                currentReportId = reportRow.id;
+
+                // Load related data in parallel
+                const [rawCaptureResult, contractorWorkResult, personnelResult, equipmentUsageResult, photosResult, aiResponseResult, userEditsResult] = await Promise.all([
+                    supabaseClient.from('report_raw_capture').select('*').eq('report_id', reportRow.id).single(),
+                    supabaseClient.from('report_contractor_work').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_personnel').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_equipment_usage').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_photos').select('*').eq('report_id', reportRow.id).order('created_at', { ascending: true }),
+                    supabaseClient.from('report_ai_response').select('*').eq('report_id', reportRow.id).single(),
+                    supabaseClient.from('report_user_edits').select('*').eq('report_id', reportRow.id)
+                ]);
+
+                // Build the report object
+                const loadedReport = createFreshReport();
+
+                // Basic report info
+                loadedReport.meta = {
+                    createdAt: reportRow.created_at,
+                    lastSaved: reportRow.updated_at,
+                    version: 4,
+                    status: reportRow.status || 'draft',
+                    reportViewed: true
+                };
+
+                loadedReport.overview.completedBy = reportRow.inspector_name || '';
+                loadedReport.overview.date = reportRow.report_date;
+
+                // Raw capture data
+                if (rawCaptureResult.data) {
+                    const rc = rawCaptureResult.data;
+                    loadedReport.meta.captureMode = rc.capture_mode || 'guided';
+                    loadedReport.fieldNotes = {
+                        freeformNotes: rc.freeform_notes || ''
+                    };
+                    loadedReport.guidedNotes = {
+                        workSummary: rc.work_summary || '',
+                        issues: rc.issues_notes || '',
+                        safety: rc.safety_notes || ''
+                    };
+                    if (rc.weather_data) {
+                        loadedReport.overview.weather = rc.weather_data;
+                    }
+                }
+
+                // Contractor work (activities)
+                if (contractorWorkResult.data && contractorWorkResult.data.length > 0) {
+                    loadedReport.activities = contractorWorkResult.data.map(cw => ({
+                        contractorId: cw.contractor_id,
+                        noWork: cw.no_work_performed || false,
+                        narrative: cw.narrative || '',
+                        equipmentUsed: cw.equipment_used || '',
+                        crew: cw.crew || ''
+                    }));
+                }
+
+                // Personnel (operations)
+                if (personnelResult.data && personnelResult.data.length > 0) {
+                    loadedReport.operations = personnelResult.data.map(p => ({
+                        contractorId: p.contractor_id,
+                        superintendents: p.superintendents || 0,
+                        foremen: p.foremen || 0,
+                        operators: p.operators || 0,
+                        laborers: p.laborers || 0,
+                        surveyors: p.surveyors || 0,
+                        others: p.others || 0
+                    }));
+                }
+
+                // Equipment usage
+                if (equipmentUsageResult.data && equipmentUsageResult.data.length > 0) {
+                    loadedReport.equipment = equipmentUsageResult.data.map(eu => ({
+                        equipmentId: eu.equipment_id,
+                        contractorId: eu.contractor_id || '',
+                        type: eu.type || '',
+                        qty: eu.qty || 1,
+                        status: eu.status === 'idle' ? 'IDLE' : `${eu.hours_used || 0} hrs`,
+                        hoursUtilized: eu.hours_used || null
+                    }));
+                }
+
+                // Photos
+                if (photosResult.data && photosResult.data.length > 0) {
+                    loadedReport.photos = photosResult.data.map(p => ({
+                        id: p.id,
+                        url: p.storage_path ? `${SUPABASE_URL}/storage/v1/object/public/report-photos/${p.storage_path}` : '',
+                        storagePath: p.storage_path || '',
+                        fileName: p.filename || '',
+                        caption: p.caption || '',
+                        date: p.taken_at ? new Date(p.taken_at).toLocaleDateString() : '',
+                        time: p.taken_at ? new Date(p.taken_at).toLocaleTimeString() : '',
+                        gps: p.gps_lat && p.gps_lng ? { lat: p.gps_lat, lng: p.gps_lng } : null
+                    }));
+                }
+
+                // AI response
+                if (aiResponseResult.data) {
+                    try {
+                        loadedReport.aiGenerated = aiResponseResult.data.response_payload || null;
+                    } catch (e) {
+                        console.error('Failed to parse AI response:', e);
+                    }
+                }
+
+                // User edits
+                if (userEditsResult.data && userEditsResult.data.length > 0) {
+                    loadedReport.userEdits = {};
+                    userEditsResult.data.forEach(ue => {
+                        loadedReport.userEdits[ue.field_path] = ue.edited_value;
+                    });
+                }
+
+                return loadedReport;
+            } catch (e) {
+                console.error('Failed to load report:', e);
+                return createFreshReport();
+            }
         }
 
         function createFreshReport() {
@@ -2323,22 +2555,163 @@
             }, 500);
         }
 
-        function saveReport() {
+        async function saveReport() {
+            await saveReportToSupabase();
+            showSaveIndicator();
+        }
+
+        /**
+         * Actually save report to Supabase
+         */
+        async function saveReportToSupabase() {
+            if (isSaving || !activeProject) return;
+            isSaving = true;
+
             try {
-                const key = getReportKey();
-                report.meta = report.meta || {};
-                report.meta.lastSaved = new Date().toISOString();
-                localStorage.setItem(key, JSON.stringify(report));
+                const reportDateStr = getReportDateStr();
 
-                // Also save to legacy key
-                localStorage.setItem('fieldvoice_report', JSON.stringify(report));
-
-                showSaveIndicator();
-            } catch (err) {
-                console.error('Failed to save report:', err);
-                if (err.name === 'QuotaExceededError') {
-                    alert('Storage full! Try removing some photos.');
+                // 1. Upsert the main report record
+                let reportId = currentReportId;
+                if (!reportId) {
+                    reportId = generateId();
                 }
+
+                const reportData = {
+                    id: reportId,
+                    project_id: activeProject.id,
+                    report_date: reportDateStr,
+                    inspector_name: report.overview?.completedBy || userSettings?.full_name || '',
+                    status: report.meta?.status || 'draft',
+                    updated_at: new Date().toISOString()
+                };
+
+                const { error: reportError } = await supabaseClient
+                    .from('reports')
+                    .upsert(reportData, { onConflict: 'id' });
+
+                if (reportError) {
+                    console.error('Error saving report:', reportError);
+                    isSaving = false;
+                    return;
+                }
+
+                currentReportId = reportId;
+
+                // 2. Upsert raw capture data
+                const rawCaptureData = {
+                    report_id: reportId,
+                    capture_mode: report.meta?.captureMode || 'guided',
+                    freeform_notes: report.fieldNotes?.freeformNotes || '',
+                    work_summary: report.guidedNotes?.workSummary || '',
+                    issues_notes: report.issues || report.guidedNotes?.issues || '',
+                    safety_notes: report.safety?.notes || report.guidedNotes?.safety || '',
+                    weather_data: report.overview?.weather || {},
+                    captured_at: new Date().toISOString()
+                };
+
+                // Delete existing and insert new (simpler than upsert for child tables)
+                await supabaseClient
+                    .from('report_raw_capture')
+                    .delete()
+                    .eq('report_id', reportId);
+
+                await supabaseClient
+                    .from('report_raw_capture')
+                    .insert(rawCaptureData);
+
+                // 3. Save contractor work
+                if (report.activities && report.activities.length > 0) {
+                    await supabaseClient
+                        .from('report_contractor_work')
+                        .delete()
+                        .eq('report_id', reportId);
+
+                    const contractorWorkData = report.activities.map(a => ({
+                        report_id: reportId,
+                        contractor_id: a.contractorId,
+                        no_work_performed: a.noWork || false,
+                        narrative: a.narrative || '',
+                        equipment_used: a.equipmentUsed || '',
+                        crew: a.crew || ''
+                    }));
+
+                    await supabaseClient
+                        .from('report_contractor_work')
+                        .insert(contractorWorkData);
+                }
+
+                // 4. Save personnel
+                if (report.operations && report.operations.length > 0) {
+                    await supabaseClient
+                        .from('report_personnel')
+                        .delete()
+                        .eq('report_id', reportId);
+
+                    const personnelData = report.operations.map(o => ({
+                        report_id: reportId,
+                        contractor_id: o.contractorId,
+                        superintendents: o.superintendents || 0,
+                        foremen: o.foremen || 0,
+                        operators: o.operators || 0,
+                        laborers: o.laborers || 0,
+                        surveyors: o.surveyors || 0,
+                        others: o.others || 0
+                    }));
+
+                    await supabaseClient
+                        .from('report_personnel')
+                        .insert(personnelData);
+                }
+
+                // 5. Save equipment usage
+                if (report.equipment && report.equipment.length > 0) {
+                    await supabaseClient
+                        .from('report_equipment_usage')
+                        .delete()
+                        .eq('report_id', reportId);
+
+                    const equipmentData = report.equipment.map(e => ({
+                        report_id: reportId,
+                        contractor_id: e.contractorId || '',
+                        type: e.type || '',
+                        qty: e.qty || 1,
+                        status: e.status === 'IDLE' ? 'idle' : 'active',
+                        hours_used: e.status && e.status !== 'IDLE' ? parseInt(e.status) || 0 : 0,
+                        notes: ''
+                    }));
+
+                    await supabaseClient
+                        .from('report_equipment_usage')
+                        .insert(equipmentData);
+                }
+
+                // 6. Save user edits
+                if (report.userEdits && Object.keys(report.userEdits).length > 0) {
+                    await supabaseClient
+                        .from('report_user_edits')
+                        .delete()
+                        .eq('report_id', reportId);
+
+                    const userEditsData = Object.entries(report.userEdits).map(([fieldPath, editedValue]) => ({
+                        report_id: reportId,
+                        field_path: fieldPath,
+                        edited_value: typeof editedValue === 'string' ? editedValue : JSON.stringify(editedValue),
+                        edited_at: new Date().toISOString()
+                    }));
+
+                    await supabaseClient
+                        .from('report_user_edits')
+                        .insert(userEditsData);
+                }
+
+                // 7. Save text sections (issues, qaqc, communications, visitors, safety)
+                // These are stored in the main report data, update via raw_capture or as separate fields
+
+                console.log('[SUPABASE] Report saved successfully');
+            } catch (err) {
+                console.error('[SUPABASE] Save failed:', err);
+            } finally {
+                isSaving = false;
             }
         }
 
@@ -2388,17 +2761,19 @@
         }
 
         // ============ FINAL REVIEW ============
-        function goToFinalReview() {
+        async function goToFinalReview() {
             // Save the current report before navigating
-            saveReport();
+            await saveReport();
 
             // Get the report date from URL or current date
-            const params = new URLSearchParams(window.location.search);
-            const dateParam = params.get('date');
-            const reportDateStr = dateParam || new Date().toISOString().split('T')[0];
+            const reportDateStr = getReportDateStr();
 
-            // Navigate to final review page
-            window.location.href = `finalreview.html?date=${reportDateStr}`;
+            // Navigate to final review page with report ID if available
+            let url = `finalreview.html?date=${reportDateStr}`;
+            if (currentReportId) {
+                url += `&reportId=${currentReportId}`;
+            }
+            window.location.href = url;
         }
 
         function showSubmitModal() {
