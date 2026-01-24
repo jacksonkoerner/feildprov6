@@ -18,6 +18,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FieldVoice">
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -198,28 +199,97 @@
     </div>
 
     <script>
-        // ============ PROJECT MANAGEMENT ============
-        const PROJECTS_KEY = 'fvp_projects';
-        const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+        // ============ SUPABASE CONFIGURATION ============
+        const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1emFkb3RiZ2tqaGd3a3ZvdGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.RiW5IFA_i8Fj4QIc1Swe1ERx3rEwPyOnQ5tOicAFXI0';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        function getProjects() {
-            const saved = localStorage.getItem(PROJECTS_KEY);
-            if (saved) {
-                try {
-                    return JSON.parse(saved);
-                } catch (e) {
+        // ============ STATE ============
+        let projectsCache = [];
+        let activeProjectCache = null;
+        let todayReportCache = null;
+
+        const ACTIVE_PROJECT_KEY = 'fvp_active_project'; // Keep in localStorage (device-specific)
+
+        // ============ FIELD MAPPING UTILITIES ============
+        function fromSupabaseProject(row) {
+            return {
+                id: row.id,
+                name: row.project_name || '',
+                noabProjectNo: row.noab_project_no || '',
+                cnoSolicitationNo: row.cno_solicitation_no || 'N/A',
+                location: row.location || '',
+                engineer: row.engineer || '',
+                primeContractor: row.prime_contractor || '',
+                noticeToProceed: row.notice_to_proceed || '',
+                contractDuration: row.contract_duration || '',
+                weatherDays: row.weather_days || 0,
+                expectedCompletion: row.expected_completion || '',
+                defaultStartTime: row.default_start_time || '06:00',
+                defaultEndTime: row.default_end_time || '16:00',
+                logo: row.logo || null,
+                status: row.status || 'active'
+            };
+        }
+
+        // ============ PROJECT MANAGEMENT ============
+        async function loadProjects() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('projects')
+                    .select('*')
+                    .order('project_name', { ascending: true });
+
+                if (error) {
+                    console.error('[SUPABASE] Error loading projects:', error);
                     return [];
                 }
+
+                projectsCache = data.map(fromSupabaseProject);
+                console.log('[SUPABASE] Loaded projects:', projectsCache.length);
+                return projectsCache;
+            } catch (e) {
+                console.error('[SUPABASE] Failed to load projects:', e);
+                return [];
             }
-            return [];
+        }
+
+        function getProjects() {
+            return projectsCache;
+        }
+
+        async function loadActiveProject() {
+            const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
+            if (!activeId) {
+                activeProjectCache = null;
+                return null;
+            }
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('projects')
+                    .select('*')
+                    .eq('id', activeId)
+                    .single();
+
+                if (error) {
+                    console.error('[SUPABASE] Error loading active project:', error);
+                    activeProjectCache = null;
+                    return null;
+                }
+
+                activeProjectCache = fromSupabaseProject(data);
+                console.log('[SUPABASE] Loaded active project:', activeProjectCache.name);
+                return activeProjectCache;
+            } catch (e) {
+                console.error('[SUPABASE] Failed to load active project:', e);
+                activeProjectCache = null;
+                return null;
+            }
         }
 
         function getActiveProject() {
-            const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
-            if (!activeId) return null;
-
-            const projects = getProjects();
-            return projects.find(p => p.id === activeId) || null;
+            return activeProjectCache;
         }
 
         function openProjectConfig() {
@@ -284,9 +354,21 @@
         }
 
         // ============ PROJECT PICKER MODAL ============
-        function showProjectPickerModal() {
+        async function showProjectPickerModal() {
             const modal = document.getElementById('projectPickerModal');
             const listContainer = document.getElementById('projectPickerList');
+
+            // Show loading state
+            listContainer.innerHTML = `
+                <div class="p-8 text-center">
+                    <i class="fas fa-spinner fa-spin text-slate-400 text-2xl mb-4"></i>
+                    <p class="text-sm text-slate-500">Loading projects...</p>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+
+            // Load fresh projects from Supabase
+            await loadProjects();
             const projects = getProjects();
             const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
 
@@ -333,17 +415,18 @@
                     `;
                 }).join('');
             }
-
-            modal.classList.remove('hidden');
         }
 
         function closeProjectPickerModal() {
             document.getElementById('projectPickerModal').classList.add('hidden');
         }
 
-        function selectProjectAndProceed(projectId) {
-            // Set as active project
+        async function selectProjectAndProceed(projectId) {
+            // Set as active project in localStorage
             localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+
+            // Update cache
+            await loadActiveProject();
 
             // Update the active project card on dashboard (visible when they return)
             updateActiveProjectCard();
@@ -358,130 +441,113 @@
             window.location.href = 'project-config.html';
         }
 
-        // ============ STORAGE ============
-        /**
-         * Generate a report storage key
-         * @param {string|null} projectId - Project ID (null for legacy fallback)
-         * @param {string|null} dateStr - Date string YYYY-MM-DD (null for today)
-         * @returns {string} Storage key
-         */
-        function getReportKey(projectId, dateStr) {
-            const date = dateStr || new Date().toISOString().split('T')[0];
-            return projectId
-                ? `fieldvoice_report_${projectId}_${date}`
-                : `fieldvoice_report_${date}`; // fallback for legacy
+        // ============ REPORT LOADING ============
+        function getTodayDateStr() {
+            return new Date().toISOString().split('T')[0];
         }
 
-        function getTodayKey() {
-            const activeProject = getActiveProject();
-            return getReportKey(activeProject?.id, null);
-        }
-
-        function getYesterdayKey() {
+        function getYesterdayDateStr() {
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
+            return yesterday.toISOString().split('T')[0];
+        }
+
+        async function loadTodayReport() {
             const activeProject = getActiveProject();
-            return getReportKey(activeProject?.id, yesterday.toISOString().split('T')[0]);
+            if (!activeProject) {
+                todayReportCache = null;
+                return null;
+            }
+
+            const todayStr = getTodayDateStr();
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('reports')
+                    .select('id, project_id, report_date, status, created_at, updated_at')
+                    .eq('project_id', activeProject.id)
+                    .eq('report_date', todayStr)
+                    .single();
+
+                if (error) {
+                    // No report found is expected
+                    if (error.code !== 'PGRST116') {
+                        console.error('[SUPABASE] Error loading today report:', error);
+                    }
+                    todayReportCache = null;
+                    return null;
+                }
+
+                // If report is submitted, return null (so dashboard shows "no report" state)
+                if (data.status === 'submitted') {
+                    todayReportCache = { ...data, submitted: true };
+                    return null;
+                }
+
+                // Load additional metadata for progress calculation
+                const [rawCaptureResult, activitiesResult] = await Promise.all([
+                    supabaseClient.from('report_raw_capture').select('transcript, guided_notes').eq('report_id', data.id).single(),
+                    supabaseClient.from('report_contractor_work').select('id').eq('report_id', data.id)
+                ]);
+
+                todayReportCache = {
+                    id: data.id,
+                    projectId: data.project_id,
+                    date: data.report_date,
+                    status: data.status,
+                    submitted: false,
+                    meta: {
+                        interviewCompleted: data.status === 'draft' || data.status === 'pending_refine' || data.status === 'refined',
+                        status: data.status
+                    },
+                    hasActivities: activitiesResult.data && activitiesResult.data.length > 0,
+                    hasRawCapture: rawCaptureResult.data !== null
+                };
+
+                console.log('[SUPABASE] Loaded today report:', todayReportCache.id);
+                return todayReportCache;
+            } catch (e) {
+                console.error('[SUPABASE] Failed to load today report:', e);
+                todayReportCache = null;
+                return null;
+            }
         }
 
         function getReport() {
-            const activeProject = getActiveProject();
-            const todayStr = new Date().toISOString().split('T')[0];
-
-            // First try project-specific key (new format)
-            if (activeProject) {
-                const projectKey = getReportKey(activeProject.id, todayStr);
-                const saved = localStorage.getItem(projectKey);
-                if (saved) {
-                    try {
-                        const parsed = JSON.parse(saved);
-                        if (parsed.meta && parsed.meta.submitted === true) {
-                            return null;
-                        }
-                        return parsed;
-                    } catch (e) {
-                        return null;
-                    }
-                }
-            }
-
-            // Fallback to legacy key (date-only, for backwards compatibility)
-            const legacyKey = getReportKey(null, todayStr);
-            const legacySaved = localStorage.getItem(legacyKey);
-            if (legacySaved) {
-                try {
-                    const parsed = JSON.parse(legacySaved);
-                    if (parsed.meta && parsed.meta.submitted === true) {
-                        return null;
-                    }
-                    return parsed;
-                } catch (e) {
-                    return null;
-                }
-            }
-
-            // Check very old legacy key
-            const legacy = localStorage.getItem('fieldvoice_report');
-            if (legacy) {
-                try {
-                    const parsed = JSON.parse(legacy);
-                    if (parsed.meta && parsed.meta.submitted === true) {
-                        return null;
-                    }
-                    if (parsed.overview?.date === new Date().toLocaleDateString()) {
-                        return parsed;
-                    }
-                } catch (e) {}
+            // Return cached report (non-submitted only)
+            if (todayReportCache && !todayReportCache.submitted) {
+                return todayReportCache;
             }
             return null;
         }
 
-        function hasYesterdayReport() {
+        async function hasSubmittedReportToday() {
             const activeProject = getActiveProject();
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            if (!activeProject) return false;
 
-            // Check project-specific key first
-            if (activeProject) {
-                const projectKey = getReportKey(activeProject.id, yesterdayStr);
-                if (localStorage.getItem(projectKey)) return true;
+            const todayStr = getTodayDateStr();
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('reports')
+                    .select('id, status')
+                    .eq('project_id', activeProject.id)
+                    .eq('report_date', todayStr)
+                    .eq('status', 'submitted')
+                    .single();
+
+                if (error) {
+                    return false;
+                }
+
+                return data !== null;
+            } catch (e) {
+                return false;
             }
-
-            // Fallback to legacy key
-            const legacyKey = getReportKey(null, yesterdayStr);
-            if (localStorage.getItem(legacyKey)) return true;
-
-            // Check very old legacy key
-            const legacy = localStorage.getItem('fieldvoice_report');
-            if (legacy) {
-                try {
-                    const parsed = JSON.parse(legacy);
-                    if (parsed.overview?.date === yesterday.toLocaleDateString()) {
-                        return true;
-                    }
-                } catch (e) {}
-            }
-            return false;
         }
 
-        function saveReport(report) {
-            const activeProject = getActiveProject();
-            const todayStr = new Date().toISOString().split('T')[0];
-
-            // Always save with project-specific key if we have an active project
-            if (activeProject) {
-                const projectKey = getReportKey(activeProject.id, todayStr);
-                localStorage.setItem(projectKey, JSON.stringify(report));
-            } else {
-                // Fallback to legacy key if no active project
-                const legacyKey = getReportKey(null, todayStr);
-                localStorage.setItem(legacyKey, JSON.stringify(report));
-            }
-
-            // Also save to very old legacy key for backwards compatibility
-            localStorage.setItem('fieldvoice_report', JSON.stringify(report));
-        }
+        // Note: saveReport is no longer needed on index.html - saving happens on report.html
+        // Weather data updates are also handled on report.html
 
         // ============ WEATHER ============
         async function syncWeather() {
@@ -552,19 +618,16 @@
                 document.getElementById('weatherPrecipVal').textContent = `${precip}"`;
                 document.getElementById('weatherIcon').className = `fas ${weatherInfo.icon} text-2xl ${weatherInfo.color} mb-1`;
 
-                // Save to report if exists
-                let report = getReport();
-                if (report) {
-                    report.overview.weather = {
-                        highTemp: `${highTemp}°F`,
-                        lowTemp: `${lowTemp}°F`,
-                        precipitation: `${precip}"`,
-                        generalCondition: weatherInfo.text,
-                        jobSiteCondition: precip > 0.1 ? 'Wet' : 'Dry',
-                        adverseConditions: precip > 0.25 ? 'Rain impact possible' : 'N/A'
-                    };
-                    saveReport(report);
-                }
+                // Weather data is cached in localStorage for use by report.html
+                localStorage.setItem('fvp_cached_weather', JSON.stringify({
+                    highTemp: `${highTemp}°F`,
+                    lowTemp: `${lowTemp}°F`,
+                    precipitation: `${precip}"`,
+                    generalCondition: weatherInfo.text,
+                    jobSiteCondition: precip > 0.1 ? 'Wet' : 'Dry',
+                    adverseConditions: precip > 0.25 ? 'Rain impact possible' : 'N/A',
+                    syncedAt: new Date().toISOString()
+                }));
             } catch (error) {
                 console.error('Weather sync failed:', error);
                 if (error.code === 1) {
@@ -612,7 +675,7 @@
                     </div>
                 `;
 
-            } else if (report.meta?.interviewCompleted && !report.meta?.submitted) {
+            } else if (report.meta?.interviewCompleted && !report.submitted) {
                 // STATE: Interview Complete, Ready for Review & Submit
                 const isPending = report.meta?.status === 'pending_refine';
                 const statusColor = isPending ? 'border-dot-yellow' : 'border-dot-blue';
@@ -675,17 +738,13 @@
         }
 
         function calculateProgress(report) {
+            // Simplified progress calculation based on available data
             let filled = 0;
-            let total = 8;
+            let total = 4;
 
-            if (report.overview?.weather?.generalCondition && report.overview.weather.generalCondition !== 'Syncing...') filled++;
-            if (report.contractors?.length > 0) filled++;
-            if (report.activities?.length > 0) filled++;
-            if (report.operations?.length > 0) filled++;
-            if (report.equipment?.length > 0) filled++;
-            if (report.generalIssues?.length > 0 || report.meta?.issuesSkipped) filled++;
-            if (report.qaqcNotes?.length > 0 || report.meta?.qaqcSkipped) filled++;
-            if (report.safety?.notes?.length > 0) filled++;
+            if (report.hasRawCapture) filled++;
+            if (report.hasActivities) filled++;
+            if (report.meta?.interviewCompleted) filled += 2;
 
             return Math.round((filled / total) * 100);
         }
@@ -755,45 +814,18 @@
             localStorage.setItem('fvp_banner_dismissed_date', new Date().toISOString());
         }
 
-        function dismissSubmittedBanner() {
+        async function dismissSubmittedBanner() {
             const banner = document.getElementById('submittedBanner');
             banner.classList.add('hidden');
             sessionStorage.setItem('fvp_submitted_banner_dismissed', 'true');
 
-            // Archive the submitted report and clear for new report
-            const todayKey = getTodayKey();
-            const saved = localStorage.getItem(todayKey);
-            if (saved) {
-                try {
-                    const report = JSON.parse(saved);
-                    if (report.meta && report.meta.submitted) {
-                        // Archive with timestamp to allow multiple submissions per day
-                        const archiveKey = `${todayKey}_submitted_${Date.now()}`;
-                        localStorage.setItem(archiveKey, saved);
-                        localStorage.removeItem(todayKey);
-                        localStorage.removeItem('fieldvoice_report');
-                    }
-                } catch (e) {}
-            }
-
-            // Update UI to show fresh state
+            // Reload report status to show fresh state
+            await loadTodayReport();
             updateReportStatus();
         }
 
-        // Check if there's a submitted report (for showing success banner)
-        function hasSubmittedReport() {
-            const saved = localStorage.getItem(getTodayKey());
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    return parsed.meta && parsed.meta.submitted === true;
-                } catch (e) {}
-            }
-            return false;
-        }
-
         // ============ INIT ============
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             if (shouldShowOnboarding()) {
                 window.location.href = 'permissions.html';
                 return;
@@ -803,12 +835,7 @@
                 showPermissionsBanner();
             }
 
-            // Show submitted banner if there's a submitted report and not dismissed this session
-            const bannerDismissedThisSession = sessionStorage.getItem('fvp_submitted_banner_dismissed') === 'true';
-            if (hasSubmittedReport() && !bannerDismissedThisSession) {
-                document.getElementById('submittedBanner').classList.remove('hidden');
-            }
-
+            // Set current date immediately
             document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
                 month: 'long',
@@ -816,9 +843,32 @@
                 year: 'numeric'
             });
 
-            updateActiveProjectCard();
-            updateReportStatus();
-            syncWeather();
+            try {
+                // Load data from Supabase
+                await loadProjects();
+                await loadActiveProject();
+                await loadTodayReport();
+
+                // Update UI
+                updateActiveProjectCard();
+                updateReportStatus();
+
+                // Show submitted banner if there's a submitted report today and not dismissed this session
+                const bannerDismissedThisSession = sessionStorage.getItem('fvp_submitted_banner_dismissed') === 'true';
+                const hasSubmitted = await hasSubmittedReportToday();
+                if (hasSubmitted && !bannerDismissedThisSession) {
+                    document.getElementById('submittedBanner').classList.remove('hidden');
+                }
+
+                // Sync weather
+                syncWeather();
+            } catch (err) {
+                console.error('Failed to initialize:', err);
+                // Still update UI with whatever we have
+                updateActiveProjectCard();
+                updateReportStatus();
+                syncWeather();
+            }
         });
     </script>
 
