@@ -18,6 +18,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FieldVoice">
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* ============ BASE STYLES ============ */
@@ -1021,29 +1022,77 @@
     </div><!-- END page-container -->
 
     <script>
+        // ============ SUPABASE CONFIGURATION ============
+        const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1emFkb3RiZ2tqaGd3a3ZvdGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.RiW5IFA_i8Fj4QIc1Swe1ERx3rEwPyOnQ5tOicAFXI0';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // ============ STATE ============
         let report = null;
+        let currentReportId = null; // Supabase report ID
         let activeProject = null;
         let projectContractors = [];
+        let userSettings = null;
 
-        const PROJECTS_KEY = 'fvp_projects';
-        const ACTIVE_PROJECT_KEY = 'fvp_active_project';
+        const ACTIVE_PROJECT_KEY = 'fvp_active_project'; // Keep in localStorage (device-specific)
+
+        // ============ FIELD MAPPING UTILITIES ============
+        // Convert Supabase project row to JS format
+        function fromSupabaseProject(row) {
+            return {
+                id: row.id,
+                name: row.project_name || '',
+                noabProjectNo: row.noab_project_no || '',
+                cnoSolicitationNo: row.cno_solicitation_no || 'N/A',
+                location: row.location || '',
+                engineer: row.engineer || '',
+                primeContractor: row.prime_contractor || '',
+                noticeToProceed: row.notice_to_proceed || '',
+                contractDuration: row.contract_duration || '',
+                weatherDays: row.weather_days || 0,
+                expectedCompletion: row.expected_completion || '',
+                defaultStartTime: row.default_start_time || '06:00',
+                defaultEndTime: row.default_end_time || '16:00',
+                logo: row.logo || null,
+                status: row.status || 'active',
+                contractors: [],
+                equipment: []
+            };
+        }
+
+        function fromSupabaseContractor(row) {
+            return {
+                id: row.id,
+                name: row.name || '',
+                abbreviation: row.abbreviation || '',
+                type: row.type || 'subcontractor',
+                trades: Array.isArray(row.trades) ? row.trades.join('; ') : (row.trades || ''),
+                status: row.status || 'active',
+                addedDate: row.added_date || null
+            };
+        }
 
         // ============ INITIALIZATION ============
-        document.addEventListener('DOMContentLoaded', () => {
-            loadActiveProject();
-            report = loadReport();
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await loadActiveProject();
+                await loadUserSettings();
+                report = await loadReport();
 
-            if (!report) {
-                alert('No report found for this date.');
-                window.location.href = 'index.html';
-                return;
+                if (!report) {
+                    alert('No report found for this date.');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                populateReport();
+                updateTotalPages();
+                checkSubmittedState();
+                checkEmptyFields();
+            } catch (err) {
+                console.error('Failed to initialize:', err);
+                alert('Failed to load report data. Please try again.');
             }
-
-            populateReport();
-            updateTotalPages();
-            checkSubmittedState();
-            checkEmptyFields();
         });
 
         // ============ CHECK SUBMITTED STATE ============
@@ -1060,57 +1109,343 @@
         }
 
         // ============ PROJECT LOADING ============
-        function loadActiveProject() {
+        async function loadActiveProject() {
             const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
-            if (!activeId) return;
-
-            const projectsJson = localStorage.getItem(PROJECTS_KEY);
-            if (!projectsJson) return;
+            if (!activeId) {
+                console.log('[SUPABASE] No active project ID found in localStorage');
+                return null;
+            }
 
             try {
-                const projects = JSON.parse(projectsJson);
-                activeProject = projects.find(p => p.id === activeId) || null;
-                if (activeProject && activeProject.contractors) {
+                // Fetch project from Supabase
+                const { data: projectRow, error: projectError } = await supabaseClient
+                    .from('projects')
+                    .select('*')
+                    .eq('id', activeId)
+                    .single();
+
+                if (projectError) {
+                    console.error('[SUPABASE] Error fetching project:', projectError);
+                    return null;
+                }
+
+                activeProject = fromSupabaseProject(projectRow);
+
+                // Fetch contractors for this project
+                const { data: contractorRows, error: contractorError } = await supabaseClient
+                    .from('contractors')
+                    .select('*')
+                    .eq('project_id', activeId);
+
+                if (!contractorError && contractorRows) {
+                    activeProject.contractors = contractorRows.map(fromSupabaseContractor);
+                    // Sort contractors: prime first
                     projectContractors = [...activeProject.contractors].sort((a, b) => {
                         if (a.type === 'prime' && b.type !== 'prime') return -1;
                         if (a.type !== 'prime' && b.type === 'prime') return 1;
                         return 0;
                     });
+                } else {
+                    projectContractors = [];
                 }
+
+                // Fetch equipment for this project
+                const { data: equipmentRows, error: equipmentError } = await supabaseClient
+                    .from('equipment')
+                    .select('*')
+                    .eq('project_id', activeId);
+
+                if (!equipmentError && equipmentRows) {
+                    activeProject.equipment = equipmentRows.map(row => ({
+                        id: row.id,
+                        type: row.type || '',
+                        model: row.model || '',
+                        status: row.status || 'active'
+                    }));
+                }
+
+                console.log('[SUPABASE] Loaded project:', activeProject.name);
+                return activeProject;
             } catch (e) {
-                console.error('Failed to load project:', e);
+                console.error('[SUPABASE] Failed to load project:', e);
+                return null;
+            }
+        }
+
+        // ============ USER SETTINGS LOADING ============
+        async function loadUserSettings() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('user_profiles')
+                    .select('*')
+                    .limit(1)
+                    .single();
+
+                if (error) {
+                    console.log('[SUPABASE] No user settings found:', error.message);
+                    return null;
+                }
+
+                userSettings = {
+                    fullName: data.full_name || '',
+                    company: data.company || '',
+                    title: data.title || '',
+                    email: data.email || '',
+                    phone: data.phone || ''
+                };
+
+                console.log('[SUPABASE] Loaded user settings');
+                return userSettings;
+            } catch (e) {
+                console.error('[SUPABASE] Failed to load user settings:', e);
+                return null;
             }
         }
 
         // ============ REPORT LOADING ============
-        function loadReport() {
+        function getReportDateStr() {
             const params = new URLSearchParams(window.location.search);
             const dateParam = params.get('date');
-            const todayStr = dateParam || new Date().toISOString().split('T')[0];
+            return dateParam || new Date().toISOString().split('T')[0];
+        }
 
-            // Try project-specific key first
-            if (activeProject) {
-                const key = `fieldvoice_report_${activeProject.id}_${todayStr}`;
-                let saved = localStorage.getItem(key);
-                if (saved) {
-                    try { return JSON.parse(saved); } catch (e) {}
+        async function loadReport() {
+            const params = new URLSearchParams(window.location.search);
+            const reportIdParam = params.get('reportId');
+            const reportDateStr = getReportDateStr();
+
+            if (!activeProject) {
+                console.log('[SUPABASE] No active project, cannot load report');
+                return null;
+            }
+
+            try {
+                let reportRow = null;
+
+                // If we have a report ID from URL, load directly
+                if (reportIdParam) {
+                    const { data, error } = await supabaseClient
+                        .from('reports')
+                        .select('*')
+                        .eq('id', reportIdParam)
+                        .single();
+
+                    if (!error && data) {
+                        reportRow = data;
+                    }
                 }
-            }
 
-            // Try date-only key
-            const legacyKey = `fieldvoice_report_${todayStr}`;
-            let saved = localStorage.getItem(legacyKey);
-            if (saved) {
-                try { return JSON.parse(saved); } catch (e) {}
-            }
+                // Otherwise, try to find by project and date
+                if (!reportRow) {
+                    const { data: existingReport, error: reportError } = await supabaseClient
+                        .from('reports')
+                        .select('*')
+                        .eq('project_id', activeProject.id)
+                        .eq('report_date', reportDateStr)
+                        .single();
 
-            // Try very old legacy key
-            saved = localStorage.getItem('fieldvoice_report');
-            if (saved) {
-                try { return JSON.parse(saved); } catch (e) {}
-            }
+                    if (reportError) {
+                        console.log('[SUPABASE] No report found for this date:', reportError.message);
+                        return null;
+                    }
 
-            return null;
+                    reportRow = existingReport;
+                }
+
+                if (!reportRow) {
+                    return null;
+                }
+
+                // Store the report ID
+                currentReportId = reportRow.id;
+
+                // Load related data in parallel
+                const [rawCaptureResult, contractorWorkResult, personnelResult, equipmentUsageResult, photosResult, aiResponseResult, userEditsResult] = await Promise.all([
+                    supabaseClient.from('report_raw_capture').select('*').eq('report_id', reportRow.id).single(),
+                    supabaseClient.from('report_contractor_work').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_personnel').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_equipment_usage').select('*').eq('report_id', reportRow.id),
+                    supabaseClient.from('report_photos').select('*').eq('report_id', reportRow.id).order('created_at', { ascending: true }),
+                    supabaseClient.from('report_ai_response').select('*').eq('report_id', reportRow.id).single(),
+                    supabaseClient.from('report_user_edits').select('*').eq('report_id', reportRow.id)
+                ]);
+
+                // Build the report object
+                const loadedReport = {
+                    overview: {
+                        projectName: reportRow.project_name || activeProject?.name || '',
+                        noabProjectNo: reportRow.project_no || activeProject?.noabProjectNo || '',
+                        date: reportRow.report_date,
+                        startTime: rawCaptureResult.data?.start_time || activeProject?.defaultStartTime || '',
+                        endTime: rawCaptureResult.data?.end_time || activeProject?.defaultEndTime || '',
+                        completedBy: reportRow.inspector_name || userSettings?.fullName || '',
+                        weather: rawCaptureResult.data?.weather_data || {},
+                        location: activeProject?.location || '',
+                        cnoSolicitationNo: activeProject?.cnoSolicitationNo || 'N/A',
+                        engineer: activeProject?.engineer || '',
+                        contractor: activeProject?.primeContractor || '',
+                        contractDay: calculateContractDay(activeProject?.noticeToProceed, reportRow.report_date),
+                        weatherDays: activeProject?.weatherDays || 0
+                    },
+                    meta: {
+                        status: reportRow.status || 'draft',
+                        submitted: reportRow.status === 'submitted',
+                        submittedAt: reportRow.submitted_at || null,
+                        createdAt: reportRow.created_at,
+                        updatedAt: reportRow.updated_at
+                    },
+                    activities: [],
+                    operations: [],
+                    equipment: [],
+                    photos: [],
+                    aiGenerated: {},
+                    userEdits: {},
+                    fieldNotes: rawCaptureResult.data?.transcript || '',
+                    guidedNotes: rawCaptureResult.data?.guided_notes || {},
+                    issues: '',
+                    communications: '',
+                    qaqc: '',
+                    visitors: '',
+                    safety: { hasIncident: false, notes: '' }
+                };
+
+                // Process contractor work
+                if (contractorWorkResult.data && contractorWorkResult.data.length > 0) {
+                    loadedReport.activities = contractorWorkResult.data.map(row => ({
+                        contractorId: row.contractor_id,
+                        noWork: row.no_work || false,
+                        narrative: row.narrative || '',
+                        equipmentUsed: row.equipment_used || '',
+                        crew: row.crew || ''
+                    }));
+                }
+
+                // Process personnel/operations
+                if (personnelResult.data && personnelResult.data.length > 0) {
+                    loadedReport.operations = personnelResult.data.map(row => ({
+                        contractorId: row.contractor_id,
+                        superintendents: row.superintendents || 0,
+                        foremen: row.foremen || 0,
+                        operators: row.operators || 0,
+                        laborers: row.laborers || 0,
+                        surveyors: row.surveyors || 0,
+                        others: row.others || 0
+                    }));
+                }
+
+                // Process equipment usage
+                if (equipmentUsageResult.data && equipmentUsageResult.data.length > 0) {
+                    loadedReport.equipment = equipmentUsageResult.data.map(row => ({
+                        contractorId: row.contractor_id,
+                        type: row.type || '',
+                        qty: row.qty || 1,
+                        status: row.status === 'idle' ? 'IDLE' : (row.hours_used ? `${row.hours_used} hrs` : 'IDLE')
+                    }));
+                }
+
+                // Process photos
+                if (photosResult.data && photosResult.data.length > 0) {
+                    loadedReport.photos = photosResult.data.map(row => ({
+                        id: row.id,
+                        url: row.photo_url || '',
+                        caption: row.caption || '',
+                        date: row.taken_at ? new Date(row.taken_at).toLocaleDateString() : ''
+                    }));
+                }
+
+                // Process AI response
+                if (aiResponseResult.data) {
+                    const aiData = aiResponseResult.data;
+                    loadedReport.aiGenerated = {
+                        activities: [],
+                        generalIssues: aiData.general_issues || '',
+                        qaqcNotes: aiData.qaqc_notes || '',
+                        safety: {
+                            hasIncident: aiData.safety_has_incident || false,
+                            notes: aiData.safety_notes || ''
+                        },
+                        contractorCommunications: aiData.contractor_communications || '',
+                        visitorsRemarks: aiData.visitors_remarks || '',
+                        operations: [],
+                        equipment: []
+                    };
+
+                    // Parse JSON fields if they exist
+                    if (aiData.activities_json) {
+                        try {
+                            loadedReport.aiGenerated.activities = typeof aiData.activities_json === 'string'
+                                ? JSON.parse(aiData.activities_json)
+                                : aiData.activities_json;
+                        } catch (e) {
+                            console.warn('[SUPABASE] Failed to parse AI activities:', e);
+                        }
+                    }
+                    if (aiData.operations_json) {
+                        try {
+                            loadedReport.aiGenerated.operations = typeof aiData.operations_json === 'string'
+                                ? JSON.parse(aiData.operations_json)
+                                : aiData.operations_json;
+                        } catch (e) {
+                            console.warn('[SUPABASE] Failed to parse AI operations:', e);
+                        }
+                    }
+                    if (aiData.equipment_json) {
+                        try {
+                            loadedReport.aiGenerated.equipment = typeof aiData.equipment_json === 'string'
+                                ? JSON.parse(aiData.equipment_json)
+                                : aiData.equipment_json;
+                        } catch (e) {
+                            console.warn('[SUPABASE] Failed to parse AI equipment:', e);
+                        }
+                    }
+
+                    // Copy AI text sections to report
+                    loadedReport.issues = aiData.general_issues || '';
+                    loadedReport.communications = aiData.contractor_communications || '';
+                    loadedReport.qaqc = aiData.qaqc_notes || '';
+                    loadedReport.visitors = aiData.visitors_remarks || '';
+                    loadedReport.safety = {
+                        hasIncident: aiData.safety_has_incident || false,
+                        notes: aiData.safety_notes || ''
+                    };
+                }
+
+                // Process user edits
+                if (userEditsResult.data && userEditsResult.data.length > 0) {
+                    userEditsResult.data.forEach(row => {
+                        let value = row.edited_value;
+                        // Try to parse JSON values
+                        try {
+                            const parsed = JSON.parse(value);
+                            if (typeof parsed === 'object') {
+                                value = parsed;
+                            }
+                        } catch (e) {
+                            // Keep as string
+                        }
+                        loadedReport.userEdits[row.field_path] = value;
+                    });
+                }
+
+                console.log('[SUPABASE] Loaded report for date:', reportDateStr);
+                return loadedReport;
+            } catch (e) {
+                console.error('[SUPABASE] Failed to load report:', e);
+                return null;
+            }
+        }
+
+        function calculateContractDay(noticeToProceed, reportDate) {
+            if (!noticeToProceed || !reportDate) return '';
+            try {
+                const ntpDate = new Date(noticeToProceed);
+                const repDate = new Date(reportDate);
+                const diffTime = repDate - ntpDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                return diffDays > 0 ? diffDays : '';
+            } catch (e) {
+                return '';
+            }
         }
 
         // ============ POPULATE REPORT ============
@@ -1723,37 +2058,112 @@
             }
         }
 
-        function submitReport() {
+        async function submitReport() {
             if (!report) {
                 alert('No report data found.');
                 return;
             }
 
-            // Get the current report key
-            const params = new URLSearchParams(window.location.search);
-            const dateParam = params.get('date');
-            const todayStr = dateParam || new Date().toISOString().split('T')[0];
-
-            // Mark report as submitted
-            report.meta = report.meta || {};
-            report.meta.submitted = true;
-            report.meta.submittedAt = new Date().toISOString();
-
-            // Determine the storage key
-            let storageKey;
-            if (activeProject) {
-                storageKey = `fieldvoice_report_${activeProject.id}_${todayStr}`;
-            } else {
-                storageKey = `fieldvoice_report_${todayStr}`;
+            if (!currentReportId) {
+                alert('No report ID found. Cannot submit.');
+                return;
             }
 
-            // Save the updated report
+            // Disable the submit button while saving
+            const submitBtn = document.querySelector('.btn-submit');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Submitting...</span>';
+            }
+
             try {
-                localStorage.setItem(storageKey, JSON.stringify(report));
+                const submittedAt = new Date().toISOString();
+
+                // 1. Save final version to report_final table
+                const finalData = {
+                    report_id: currentReportId,
+                    final_data: {
+                        overview: report.overview,
+                        activities: report.activities,
+                        operations: report.operations,
+                        equipment: report.equipment,
+                        photos: report.photos,
+                        aiGenerated: report.aiGenerated,
+                        userEdits: report.userEdits,
+                        issues: report.issues,
+                        communications: report.communications,
+                        qaqc: report.qaqc,
+                        visitors: report.visitors,
+                        safety: report.safety
+                    },
+                    submitted_at: submittedAt
+                };
+
+                // Check if a final record already exists
+                const { data: existingFinal } = await supabaseClient
+                    .from('report_final')
+                    .select('id')
+                    .eq('report_id', currentReportId)
+                    .single();
+
+                if (existingFinal) {
+                    // Update existing
+                    const { error: finalError } = await supabaseClient
+                        .from('report_final')
+                        .update({
+                            final_data: finalData.final_data,
+                            submitted_at: submittedAt
+                        })
+                        .eq('report_id', currentReportId);
+
+                    if (finalError) {
+                        console.error('[SUPABASE] Error updating report_final:', finalError);
+                        throw finalError;
+                    }
+                } else {
+                    // Insert new
+                    const { error: finalError } = await supabaseClient
+                        .from('report_final')
+                        .insert(finalData);
+
+                    if (finalError) {
+                        console.error('[SUPABASE] Error inserting report_final:', finalError);
+                        throw finalError;
+                    }
+                }
+
+                // 2. Update reports table status to 'submitted'
+                const { error: reportError } = await supabaseClient
+                    .from('reports')
+                    .update({
+                        status: 'submitted',
+                        submitted_at: submittedAt,
+                        updated_at: submittedAt
+                    })
+                    .eq('id', currentReportId);
+
+                if (reportError) {
+                    console.error('[SUPABASE] Error updating report status:', reportError);
+                    throw reportError;
+                }
+
+                // Update local state
+                report.meta = report.meta || {};
+                report.meta.submitted = true;
+                report.meta.submittedAt = submittedAt;
+                report.meta.status = 'submitted';
+
+                console.log('[SUPABASE] Report submitted successfully');
                 showSubmitSuccess();
             } catch (e) {
-                console.error('Failed to save report:', e);
-                alert('Failed to submit report. Storage may be full.');
+                console.error('[SUPABASE] Failed to submit report:', e);
+                alert('Failed to submit report. Please try again.');
+
+                // Re-enable the submit button
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i><span>Submit</span>';
+                }
             }
         }
 
