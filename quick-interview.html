@@ -20,6 +20,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./js/config.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -589,11 +590,6 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
     </div>
 
     <script>
-        // ============ SUPABASE CONFIGURATION ============
-        const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1emFkb3RiZ2tqaGd3a3ZvdGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.RiW5IFA_i8Fj4QIc1Swe1ERx3rEwPyOnQ5tOicAFXI0';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
         // ============ STATE ============
         let currentSection = null;
         let report = null;
@@ -1862,8 +1858,6 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
         }
 
         // ============ PROJECT & CONTRACTOR LOADING ============
-        const ACTIVE_PROJECT_KEY = 'fvp_active_project'; // Keep in localStorage (device-specific)
-
         async function loadActiveProject() {
             const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
             if (!activeId) {
