@@ -20,6 +20,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./js/config.js"></script>
+    <script src="./js/pwa-utils.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -627,68 +628,26 @@
             showToast('Draft deleted', 'success');
         }
 
-        // ============ ONLINE/OFFLINE EVENTS ============
-        window.addEventListener('online', () => {
-            renderDrafts();
-        });
-
-        window.addEventListener('offline', () => {
-            document.getElementById('syncBanner').classList.add('hidden');
-            showToast("You're offline", 'warning');
-        });
-
         // ============ INIT ============
         document.addEventListener('DOMContentLoaded', () => {
             renderDrafts();
         });
     </script>
 
-    <!-- PWA Navigation Fix -->
-    <script>
-        (function() {
-            if (window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches) {
-                document.addEventListener('click', function(e) {
-                    const link = e.target.closest('a');
-                    if (link && link.href && link.href.startsWith(window.location.origin)) {
-                        e.preventDefault();
-                        window.location.href = link.href;
-                    }
-                }, true);
-            }
-        })();
-    </script>
-
     <!-- Offline Banner -->
     <div id="offline-banner" class="fixed top-0 left-0 right-0 bg-yellow-500 text-yellow-900 text-center py-2 px-4 font-bold text-sm z-[9999] transform -translate-y-full transition-transform duration-300" style="display: none;">
         <i class="fas fa-wifi-slash mr-2"></i>You are offline
     </div>
+
+    <!-- Initialize PWA features with page-specific handlers -->
     <script>
-        const offlineBanner = document.getElementById('offline-banner');
-
-        function showOfflineBanner() {
-            if (offlineBanner) {
-                offlineBanner.style.display = 'block';
-                setTimeout(() => {
-                    offlineBanner.style.transform = 'translateY(0)';
-                }, 10);
+        initPWA({
+            onOnline: () => renderDrafts(),
+            onOffline: () => {
+                document.getElementById('syncBanner').classList.add('hidden');
+                showToast("You're offline", 'warning');
             }
-        }
-
-        function hideOfflineBanner() {
-            if (offlineBanner) {
-                offlineBanner.style.transform = 'translateY(-100%)';
-                setTimeout(() => {
-                    offlineBanner.style.display = 'none';
-                }, 300);
-            }
-        }
-
-        window.addEventListener('online', hideOfflineBanner);
-        window.addEventListener('offline', showOfflineBanner);
-
-        if (!navigator.onLine) {
-            showOfflineBanner();
-        }
+        });
     </script>
 </body>
 </html>

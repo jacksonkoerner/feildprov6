@@ -1,7 +1,7 @@
 // FieldVoice Pro Service Worker
 // Enables offline functionality for PWA
 
-const CACHE_VERSION = 'v1.6.0';
+const CACHE_VERSION = 'v1.7.0';
 const CACHE_NAME = `fieldvoice-pro-${CACHE_VERSION}`;
 
 // Files to cache for offline use
@@ -16,7 +16,11 @@ const STATIC_ASSETS = [
     './settings.html',
     './landing.html',
     './archives.html',
+    './drafts.html',
     './project-config.html',
+    './js/config.js',
+    './js/supabase-utils.js',
+    './js/pwa-utils.js',
     './manifest.json',
     './icons/icon-192x192.png',
     './icons/icon-512x512.png',
