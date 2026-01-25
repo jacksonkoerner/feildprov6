@@ -24,11 +24,10 @@
 
 | Key Name | Written By | Read By | Deleted By | Purpose | Data Structure |
 |----------|-----------|---------|------------|---------|----------------|
-| `fvp_active_project` | index.html, drafts.html, project-config.html | index.html, quick-interview.html, report.html, finalreview.html, editor.html, drafts.html, project-config.html | project-config.html | Store UUID of currently selected project | `string` (UUID) |
+| `fvp_active_project` | index.html, drafts.html, project-config.html | index.html, quick-interview.html, report.html, finalreview.html, drafts.html, project-config.html | project-config.html | Store UUID of currently selected project | `string` (UUID) |
 | `fvp_quick_interview_draft` | quick-interview.html, drafts.html | quick-interview.html | quick-interview.html | Draft data during interview process | `object` (complex interview state) |
 | `fvp_offline_queue` | quick-interview.html, drafts.html | index.html, quick-interview.html, drafts.html | - | Queue of reports pending sync | `{ drafts: [...] }` |
-| `fvp_cached_weather` | index.html | - | - | Cached weather data for reports | `{ highTemp, lowTemp, precipitation, generalCondition, jobSiteCondition, adverseConditions, syncedAt }` |
-| `fvp_ai_response_${reportId}` | quick-interview.html | report.html | report.html | Temporary cache for AI response until saved to DB | `object` (AI generated report) |
+| `fvp_ai_response_${reportId}` | quick-interview.html | report.html | report.html, index.html (cleanup) | Temporary cache for AI response until saved to DB | `object` (AI generated report) |
 | `fvp_mic_granted` | quick-interview.html, permissions.html | index.html, quick-interview.html, permissions.html | permissions.html | Track microphone permission status | `'true'` |
 | `fvp_mic_timestamp` | permissions.html | - | permissions.html | When mic permission was granted | `string` (timestamp) |
 | `fvp_cam_granted` | permissions.html | permissions.html | permissions.html | Track camera permission status | `'true'` |
@@ -52,22 +51,22 @@
 
 ### Master Table Matrix
 
-| Table | index.html | quick-interview.html | report.html | finalreview.html | archives.html | admin-debug.html | settings.html | editor.html | drafts.html | project-config.html |
-|-------|------------|---------------------|-------------|-----------------|---------------|-----------------|---------------|-------------|-------------|-------------------|
-| `projects` | SELECT | SELECT | SELECT | SELECT | SELECT | (via JOIN) | - | SELECT | - | SELECT, UPSERT, DELETE |
-| `reports` | SELECT | SELECT, UPSERT | SELECT, UPSERT | SELECT, UPDATE | SELECT, DELETE | SELECT, UPDATE, DELETE | - | SELECT, UPSERT | SELECT, INSERT, UPDATE | - |
-| `report_raw_capture` | SELECT | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | SELECT, UPSERT | - | - |
-| `report_contractor_work` | SELECT | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | SELECT, DELETE, INSERT | - | - |
-| `report_personnel` | - | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | SELECT, DELETE, INSERT | - | - |
-| `report_equipment_usage` | - | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | SELECT, DELETE, INSERT | - | - |
-| `report_photos` | - | SELECT, UPSERT, UPDATE, DELETE | SELECT | SELECT | SELECT | - | - | SELECT, UPSERT | - | - |
-| `report_ai_request` | - | INSERT | - | - | - | - | - | - | - | - |
-| `report_ai_response` | - | UPSERT | SELECT | SELECT | - | - | - | - | - | - |
-| `report_user_edits` | - | - | SELECT, DELETE, INSERT | SELECT | - | - | - | - | - | - |
-| `report_final` | - | - | - | SELECT, INSERT, UPDATE | - | - | - | - | - | - |
-| `contractors` | - | SELECT | SELECT | SELECT | - | - | - | - | - | SELECT, UPSERT, DELETE |
-| `equipment` | - | SELECT | SELECT | SELECT | - | - | - | - | - | SELECT, UPSERT, DELETE |
-| `user_profiles` | - | SELECT | SELECT | SELECT | - | - | SELECT, INSERT, UPDATE | - | - | - |
+| Table | index.html | quick-interview.html | report.html | finalreview.html | archives.html | admin-debug.html | settings.html | drafts.html | project-config.html |
+|-------|------------|---------------------|-------------|-----------------|---------------|-----------------|---------------|-------------|-------------------|
+| `projects` | SELECT | SELECT | SELECT | SELECT | SELECT | (via JOIN) | - | - | SELECT, UPSERT, DELETE |
+| `reports` | SELECT | SELECT, UPSERT | SELECT, UPSERT | SELECT, UPDATE | SELECT, DELETE | SELECT, UPDATE, DELETE | - | SELECT, INSERT, UPDATE | - |
+| `report_raw_capture` | SELECT | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | - | - |
+| `report_contractor_work` | SELECT | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | - | - |
+| `report_personnel` | - | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | - | - |
+| `report_equipment_usage` | - | SELECT, DELETE, INSERT | SELECT, DELETE, INSERT | SELECT | - | - | - | - | - |
+| `report_photos` | - | SELECT, UPSERT, UPDATE, DELETE | SELECT | SELECT | SELECT | - | - | - | - |
+| `report_ai_request` | - | INSERT | - | - | - | - | - | - | - |
+| `report_ai_response` | - | UPSERT | SELECT | SELECT | - | - | - | - | - |
+| `report_user_edits` | - | - | SELECT, DELETE, INSERT | SELECT | - | - | - | - | - |
+| `report_final` | - | - | - | SELECT, INSERT, UPDATE | - | - | - | - | - |
+| `contractors` | - | SELECT | SELECT | SELECT | - | - | - | - | SELECT, UPSERT, DELETE |
+| `equipment` | - | SELECT | SELECT | SELECT | - | - | - | - | SELECT, UPSERT, DELETE |
+| `user_profiles` | - | SELECT | SELECT | SELECT | - | - | SELECT, INSERT, UPDATE | - | - |
 
 ### Storage Buckets
 
@@ -276,33 +275,6 @@
 - `index.html` (back)
 - `project-config.html` (manage projects)
 - `permissions.html` (setup permissions)
-
----
-
-### editor.html (Direct Report Editor)
-
-**Purpose:** Direct editing of report sections (alternative to interview flow)
-
-**localStorage:**
-- Reads: `fvp_active_project`
-- Writes: None
-- Deletes: None
-
-**Supabase Queries:**
-- `projects`: SELECT
-- `reports`: SELECT, UPSERT
-- `report_raw_capture`: SELECT, UPSERT
-- `report_contractor_work`: SELECT, DELETE, INSERT
-- `report_personnel`: SELECT, DELETE, INSERT
-- `report_equipment_usage`: SELECT, DELETE, INSERT
-- `report_photos`: SELECT, UPSERT
-
-**URL Parameters:**
-- `section` (which section to show, defaults to 'photos')
-
-**Navigates To:**
-- `index.html` (back)
-- `report.html` (view report)
 
 ---
 
@@ -581,7 +553,6 @@
 
 SUPPORTING PAGES:
 ├── settings.html ─────────▶ Supabase: user_profiles
-├── editor.html ───────────▶ Supabase: reports, report_*
 ├── admin-debug.html ──────▶ localStorage (all fvp_*), Supabase: reports
 └── permission-debug.html ─▶ (diagnostic only, no data)
 ```
@@ -601,8 +572,8 @@ SUPPORTING PAGES:
 
 | Key/Constant | Defined In | Status |
 |--------------|-----------|--------|
-| `fvp_cached_weather` | Written in index.html | **Never read** - Weather data cached but appears unused |
-| `ACTIVE_PROJECT_KEY` in archives.html | Defined (line 161) | **Never used** - Constant defined but no getItem/setItem call |
+| `fvp_cached_weather` | ~~Written in index.html~~ | ✅ **FIXED** - Removed dead write operation |
+| `ACTIVE_PROJECT_KEY` in archives.html | ~~Defined (line 161)~~ | ✅ **FIXED** - Removed unused constant |
 | `fvp_speech_granted` | permissions.html | **Write location unknown** - Read but never written |
 
 ### 6.3 Webhook URLs (Consistent)
@@ -620,14 +591,14 @@ All pages now use the same webhook endpoint for AI processing.
 | Cache | Risk | Scenario |
 |-------|------|----------|
 | `fvp_quick_interview_draft` | Data loss on multi-device | User edits on Device A, opens Device B which has stale draft |
-| `fvp_ai_response_${id}` | Orphaned if page navigated away | If user doesn't complete flow, cache remains |
+| `fvp_ai_response_${id}` | ~~Orphaned if page navigated away~~ | ✅ **FIXED** - index.html now cleans up caches older than 24 hours |
 | `projectsCache` (in-memory) | Stale if project edited elsewhere | No cache invalidation mechanism |
 
 ### 6.5 Potential Race Conditions
 
 | Scenario | Pages Involved | Risk |
 |----------|----------------|------|
-| **Concurrent editing** | quick-interview.html + editor.html | Both can modify same report simultaneously |
+| ~~**Concurrent editing**~~ | ~~quick-interview.html + editor.html~~ | ✅ **FIXED** - editor.html removed (was unused legacy code) |
 | **Offline queue sync** | drafts.html | Multiple sync attempts could create duplicate records |
 | **Report status transitions** | quick-interview.html → report.html | If webhook slow, report.html may load stale status |
 
@@ -636,8 +607,8 @@ All pages now use the same webhook endpoint for AI processing.
 | Concept | Variations Found |
 |---------|------------------|
 | Project ID reference | `project_id` (DB), `projectId` (JS), `activeId` (local var) |
-| Report status values | `'draft'`, `'pending_refine'`, `'refined'`, `'submitted'`, `'finalized'` (but `finalized` transition never found) |
-| Supabase client variable | `supabaseClient` (most files), `supabase` (some older references) |
+| Report status values | `'draft'`, `'pending_refine'`, `'refined'`, `'submitted'`, `'finalized'` - ✅ **DOCUMENTED** - `finalized` is reserved for future admin approval workflow |
+| Supabase client variable | `supabaseClient` (all files) - ✅ **VERIFIED** - Consistent across codebase |
 
 ### 6.7 Missing Error Recovery
 
@@ -664,7 +635,7 @@ All pages now use the same webhook endpoint for AI processing.
 
 1. **Unify webhook URLs** - drafts.html uses different n8n instance than other pages
 2. **Add cache invalidation** - Implement event-based cache refresh for projectsCache
-3. **Remove unused localStorage keys** - `fvp_cached_weather` is written but never consumed
+3. ~~**Remove unused localStorage keys**~~ - ✅ **DONE** - `fvp_cached_weather` write removed
 
 ### 7.2 Offline Support
 
@@ -680,15 +651,15 @@ All pages now use the same webhook endpoint for AI processing.
 
 ### 7.4 Code Cleanup
 
-10. **Remove `ACTIVE_PROJECT_KEY` from archives.html** - Defined but unused
+10. ~~**Remove `ACTIVE_PROJECT_KEY` from archives.html**~~ - ✅ **DONE** - Removed unused constant
 11. **Standardize variable naming** - Use consistent casing for projectId vs project_id
-12. **Add `finalized` status transition** - Status exists but no code path sets it
+12. ~~**Add `finalized` status transition**~~ - ✅ **DOCUMENTED** - Clarified as reserved for future admin approval workflow
 
 ### 7.5 Data Integrity
 
 13. **Implement cascade deletes** - When report deleted, clean up child tables and storage
 14. **Add foreign key constraints** - Ensure referential integrity at DB level
-15. **Clean up orphaned AI response cache** - Add TTL or cleanup on page load
+15. ~~**Clean up orphaned AI response cache**~~ - ✅ **DONE** - index.html now cleans up stale `fvp_ai_response_*` keys older than 24 hours
 
 ### 7.6 Performance
 

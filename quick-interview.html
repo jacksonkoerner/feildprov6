@@ -634,6 +634,8 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                     return true; // Allow page to load on error, let normal flow handle it
                 }
 
+                // Status flow: draft → pending_refine → refined → submitted → finalized
+                // Note: 'finalized' is reserved for future admin approval workflow (not currently set by any code path)
                 if (report && ['refined', 'submitted', 'finalized'].includes(report.status)) {
                     // Cannot edit after AI refinement - redirect to report page
                     console.log('[STATE CHECK] Report already refined, redirecting to report.html');

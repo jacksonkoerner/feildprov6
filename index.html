@@ -421,6 +421,7 @@
                         .eq('report_date', todayStr);
 
                     if (reports) {
+                        // Note: 'finalized' is reserved for future admin approval workflow
                         reports.forEach(r => {
                             if (['refined', 'submitted', 'finalized'].includes(r.status)) {
                                 refinedProjectIds.add(r.project_id);
@@ -687,17 +688,6 @@
                 document.getElementById('weatherTempLow').textContent = `${lowTemp}°`;
                 document.getElementById('weatherPrecipVal').textContent = `${precip}"`;
                 document.getElementById('weatherIcon').className = `fas ${weatherInfo.icon} text-2xl ${weatherInfo.color} mb-1`;
-
-                // Weather data is cached in localStorage for use by report.html
-                localStorage.setItem('fvp_cached_weather', JSON.stringify({
-                    highTemp: `${highTemp}°F`,
-                    lowTemp: `${lowTemp}°F`,
-                    precipitation: `${precip}"`,
-                    generalCondition: weatherInfo.text,
-                    jobSiteCondition: precip > 0.1 ? 'Wet' : 'Dry',
-                    adverseConditions: precip > 0.25 ? 'Rain impact possible' : 'N/A',
-                    syncedAt: new Date().toISOString()
-                }));
             } catch (error) {
                 console.error('Weather sync failed:', error);
                 if (error.code === 1) {
@@ -938,6 +928,25 @@
 
             if (shouldShowBanner()) {
                 showPermissionsBanner();
+            }
+
+            // Clean up old AI response caches (older than 24 hours)
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('fvp_ai_response_')) {
+                    try {
+                        const cached = JSON.parse(localStorage.getItem(key));
+                        const cachedAt = new Date(cached.cachedAt);
+                        const hoursSince = (Date.now() - cachedAt.getTime()) / (1000 * 60 * 60);
+                        if (hoursSince > 24) {
+                            localStorage.removeItem(key);
+                            console.log(`[CLEANUP] Removed stale AI cache: ${key}`);
+                        }
+                    } catch (e) {
+                        // Invalid JSON, remove it
+                        localStorage.removeItem(key);
+                    }
+                }
             }
 
             // Set current date immediately
