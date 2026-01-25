@@ -68,14 +68,18 @@
 ├── report.html             # AI-populated editable report with original notes view
 ├── finalreview.html        # Read-only DOT RPR Daily Report viewer for finalized reports
 ├── archives.html           # Report archives with swipe-to-delete functionality
+├── drafts.html             # Drafts & offline queue management
 ├── editor.html             # Photo editor & section-specific editing
 ├── permissions.html        # System setup, permission testing (mic, camera, GPS)
 ├── permission-debug.html   # Permission debugging and troubleshooting utility
 ├── project-config.html     # Project & contractor configuration management
 ├── settings.html           # Inspector profile & personal information
 ├── landing.html            # Marketing/onboarding landing page
+├── admin-debug.html        # Admin debugging tool for data investigation
 ├── sw.js                   # Service worker for PWA offline support
 ├── manifest.json           # PWA manifest with app metadata and icons
+├── package.json            # NPM config (devDependency: Sharp for icon generation)
+├── generate-icons.js       # Script to generate PWA icons from SVG
 ├── assets/                 # Favicon and browser icon assets
 │   ├── favicon.ico         # Standard favicon for browsers
 │   ├── favicon-16x16.png   # Small favicon
@@ -91,13 +95,20 @@
 │   ├── icon-144x144.png
 │   ├── icon-152x152.png
 │   ├── icon-192x192.png
+│   ├── icon-192x192-maskable.png   # Maskable icon for Android
 │   ├── icon-384x384.png
-│   └── icon-512x512.png
+│   ├── icon-512x512.png
+│   └── icon-512x512-maskable.png   # Maskable icon for Android
 ├── docs/                   # Technical documentation
 │   ├── project-config-spec.md
 │   ├── quick-interview-spec.md
 │   ├── report-page-spec.md
-│   └── finalreview-spec.md
+│   ├── finalreview-spec.md
+│   ├── current-data-flow.md        # Detailed data flow mapping
+│   ├── data-flow-audit.md          # Complete table usage audit by page
+│   └── report-finalreview-archives-investigation.md  # Page interconnection analysis
+├── migrations/             # Database migration scripts
+│   └── 001_add_guided_section_columns.sql  # Adds guided mode columns
 └── README.md               # This documentation file
 ```
 
@@ -105,17 +116,19 @@
 
 | Page | Lines | Purpose |
 |------|-------|---------|
-| `index.html` | ~981 | Dashboard with project selection, active project display, weather, and navigation |
-| `quick-interview.html` | ~3,961 | DOT-compliant report with dual capture modes (Quick Notes minimal or Guided Sections), 12 expandable sections, auto-expanding textareas, contractor-based work entry |
-| `report.html` | ~3,254 | AI-populated editable DOT form with Form View and Original Notes tabs, Final Review navigation |
-| `finalreview.html` | ~2,323 | Read-only DOT RPR Daily Report viewer matching official DOT format with 4+ page layout, print-optimized CSS, contractor-based work summary, operations/equipment tables, and photo grid |
-| `archives.html` | ~546 | Report history with swipe-to-delete, date-sorted report list, view finalized reports |
+| `index.html` | ~1,091 | Dashboard with project selection, active project display, weather, and navigation |
+| `quick-interview.html` | ~4,354 | DOT-compliant report with dual capture modes (Quick Notes minimal or Guided Sections), 12 expandable sections, auto-expanding textareas, contractor-based work entry |
+| `report.html` | ~3,302 | AI-populated editable DOT form with Form View and Original Notes tabs, Final Review navigation |
+| `finalreview.html` | ~2,320 | Read-only DOT RPR Daily Report viewer matching official DOT format with 4+ page layout, print-optimized CSS, contractor-based work summary, operations/equipment tables, and photo grid |
+| `archives.html` | ~566 | Report history with swipe-to-delete, date-sorted report list, view finalized reports |
+| `drafts.html` | ~699 | Drafts & offline queue management - displays pending reports waiting to sync when online |
 | `editor.html` | ~1,109 | Photo capture with GPS embedding, full-size photo cards with orientation handling, editable captions |
 | `permissions.html` | ~1,596 | Permission testing (mic, camera, GPS), iOS-specific instructions for native dictation |
 | `permission-debug.html` | ~1,074 | Debugging utility for troubleshooting permission issues |
 | `project-config.html` | ~2,106 | Project management with document import, contractor roster, equipment inventory, and contract details |
 | `settings.html` | ~538 | Inspector profile - personal information, title, company, signature preview, and app refresh |
 | `landing.html` | ~1,560 | Marketing page with feature overview and onboarding |
+| `admin-debug.html` | ~277 | Admin debugging tool for investigating data issues, clearing localStorage, managing reports |
 
 ---
 
@@ -288,7 +301,13 @@ These keys remain in localStorage for device-specific state:
 | Key | Purpose |
 |-----|---------|
 | `fvp_active_project` | ID of currently active project on this device |
+| `fvp_quick_interview_draft` | Draft data during interview session |
+| `fvp_offline_queue` | Reports pending sync when offline |
+| `fvp_ai_response_{reportId}` | Temporary AI response cache per report |
+| `fvp_cached_weather` | Cached weather data with timestamp |
 | `fvp_mic_granted` | Microphone permission status flag |
+| `fvp_mic_timestamp` | Timestamp of microphone permission grant |
+| `fvp_cam_granted` | Camera permission status flag |
 | `fvp_loc_granted` | Location permission status flag |
 | `fvp_onboarded` | First-time onboarding completed flag |
 | `fvp_banner_dismissed` | Permission warning banner dismissed |
@@ -886,22 +905,24 @@ npx serve .
 
 | File | Lines | Size (approx) |
 |------|-------|---------------|
-| index.html | 981 | 48 KB |
-| quick-interview.html | 3,961 | 195 KB |
-| report.html | 3,254 | 155 KB |
-| finalreview.html | 2,323 | 110 KB |
-| archives.html | 546 | 26 KB |
-| editor.html | 1,109 | 52 KB |
-| permissions.html | 1,596 | 80 KB |
+| index.html | 1,091 | 52 KB |
+| quick-interview.html | 4,354 | 205 KB |
+| report.html | 3,302 | 150 KB |
+| finalreview.html | 2,320 | 89 KB |
+| archives.html | 566 | 25 KB |
+| drafts.html | 699 | 30 KB |
+| editor.html | 1,109 | 50 KB |
+| permissions.html | 1,596 | 81 KB |
 | permission-debug.html | 1,074 | 53 KB |
 | project-config.html | 2,106 | 100 KB |
 | settings.html | 538 | 26 KB |
 | landing.html | 1,560 | 80 KB |
+| admin-debug.html | 277 | 11 KB |
 | sw.js | 209 | 7 KB |
-| manifest.json | 114 | 3 KB |
+| manifest.json | 113 | 3 KB |
 | icons/ | - | ~3 KB |
 | assets/ | - | ~328 KB |
-| **Total** | **~19,371** | **~1.3 MB** |
+| **Total** | **~20,914** | **~1.4 MB** |
 
 ---
 
@@ -985,6 +1006,42 @@ npx serve .
   - Real-time height adjustment for better mobile experience
   - Scrollable when content exceeds max height
 
+### Drafts & Offline Queue Page (January 2026)
+- **New page: `drafts.html`** - Manage pending reports
+  - Displays all reports in draft or pending status
+  - Shows offline queue items waiting to sync
+  - "Sync Now" functionality when back online
+  - One-tap resume for any draft report
+  - Visual indicators for sync status
+  - Accessible from main dashboard navigation
+
+### Admin Debug Tools (January 2026)
+- **New page: `admin-debug.html`** - Developer/admin utilities
+  - View all localStorage keys (fvp_* prefixed)
+  - Browse all reports in database
+  - Clear localStorage data
+  - Reset reports to draft status
+  - Delete reports (cascades to related tables)
+  - Status flow reference guide
+
+### Data Flow Documentation (January 2026)
+- **Comprehensive documentation added**
+  - `docs/current-data-flow.md` - Detailed data flow mapping
+  - `docs/data-flow-audit.md` - Complete table usage audit by page
+  - `docs/report-finalreview-archives-investigation.md` - Page interconnection analysis
+  - Clear documentation of Supabase table usage per page
+
+### Database Migrations (January 2026)
+- **Migration scripts added** in `migrations/` directory
+  - `001_add_guided_section_columns.sql` - Adds columns for guided mode sections
+  - Supports structured data storage for 12 DOT sections
+
+### Bug Fixes (January 2026)
+- Fixed webhook URL and payload structure in drafts.html
+- Fixed archives.html empty results using proper JOIN for project_name
+- Renamed supabase variable to supabaseClient to avoid conflicts
+- Improved data flow with state protection and localStorage-first editing
+
 ---
 
 ## Summary
@@ -999,11 +1056,14 @@ FieldVoice Pro is a sophisticated, production-ready field documentation system t
 - **DOT-compliant reporting** - Contractor-based work entry, personnel tracking, and equipment status matching DOT form requirements
 - **Auto-expanding textareas** - Input fields grow with content for better mobile experience
 - **AI processing integration** - n8n webhooks for text refinement
+- **Drafts & offline queue** - Dedicated drafts page for managing pending reports and syncing when online
+- **Admin debug tools** - Developer utilities for data investigation and troubleshooting
 - Supports voice-first data entry via native keyboard dictation with AI enhancement
 - Generates professional, DOT-compliant PDF reports with 12 comprehensive sections
 - Uses n8n webhooks for AI text refinement and document extraction
 - **Service worker caching** ensures fast load times
 - **Safe-area support** for modern iOS devices with notch/Dynamic Island
 - **Streamlined navigation** with project picker, Home buttons, and improved workflow tracking
+- **Comprehensive documentation** - Detailed data flow audits and technical specs in docs/ directory
 
-The codebase is mature (~19,371 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
+The codebase is mature (~20,914 lines including PWA infrastructure), well-structured, and includes comprehensive error handling for real-world field conditions including graceful offline degradation.
