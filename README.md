@@ -924,6 +924,7 @@ The following are the canonical locations for shared code:
 | `/js/supabase-utils.js` | fromSupabase*, toSupabase* converters |
 | `/js/pwa-utils.js` | Service worker registration, offline banner, PWA navigation fix |
 | `/js/ui-utils.js` | escapeHtml(), generateId(), date formatting helpers |
+| `/js/media-utils.js` | Photo capture, compression, GPS coordinates, file handling |
 
 ### Rules for Claude Code
 
@@ -942,6 +943,7 @@ When working on this codebase, follow these rules:
 | supabase-utils.js | ✅ Complete | 0 files |
 | pwa-utils.js | ✅ Complete | 0 files |
 | ui-utils.js | ✅ Complete | 0 files |
+| media-utils.js | ✅ Complete | 0 files |
 
 ---
 
