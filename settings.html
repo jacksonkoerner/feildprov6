@@ -21,6 +21,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./js/config.js"></script>
     <script src="./js/pwa-utils.js"></script>
+    <script src="./js/ui-utils.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -319,17 +320,6 @@
                 console.error('Failed to get signature:', e);
                 return '';
             }
-        }
-
-        function showToast(message, type = 'success') {
-            const existing = document.querySelector('.toast-msg');
-            if (existing) existing.remove();
-            const colors = { success: 'bg-safety-green', warning: 'bg-dot-orange', error: 'bg-red-600' };
-            const toast = document.createElement('div');
-            toast.className = `toast-msg fixed bottom-24 left-1/2 -translate-x-1/2 ${colors[type] || colors.success} text-white px-6 py-3 font-bold text-sm shadow-lg z-50 flex items-center gap-2 uppercase`;
-            toast.innerHTML = `<i class="fas fa-check"></i>${message}`;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
         }
 
         // PWA Refresh Functions

@@ -24,6 +24,7 @@
     <script src="./js/config.js"></script>
     <script src="./js/supabase-utils.js"></script>
     <script src="./js/pwa-utils.js"></script>
+    <script src="./js/ui-utils.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -763,11 +764,6 @@
             localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
         }
 
-        // Generate UUID for new records
-        function generateId() {
-            return crypto.randomUUID();
-        }
-
         function createNewProject() {
             currentProject = {
                 id: generateId(),
@@ -1388,37 +1384,6 @@
                 deleteCallback();
             }
             closeDeleteModal();
-        }
-
-        // ============ UTILITIES ============
-        function escapeHtml(str) {
-            if (!str) return '';
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
-
-        function showToast(message, type = 'success') {
-            const existing = document.querySelector('.toast-msg');
-            if (existing) existing.remove();
-
-            const colors = {
-                success: 'bg-safety-green',
-                warning: 'bg-dot-orange',
-                error: 'bg-red-600'
-            };
-
-            const icons = {
-                success: 'fa-check',
-                warning: 'fa-exclamation-triangle',
-                error: 'fa-times-circle'
-            };
-
-            const toast = document.createElement('div');
-            toast.className = `toast-msg fixed bottom-24 left-1/2 -translate-x-1/2 ${colors[type] || colors.success} text-white px-6 py-3 font-bold text-sm shadow-lg z-50 flex items-center gap-2 uppercase`;
-            toast.innerHTML = `<i class="fas ${icons[type] || icons.success}"></i>${escapeHtml(message)}`;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
         }
 
         // ============ FILE IMPORT FUNCTIONS ============

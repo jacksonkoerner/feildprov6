@@ -21,6 +21,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./js/config.js"></script>
     <script src="./js/supabase-utils.js"></script>
+    <script src="./js/ui-utils.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -1019,11 +1020,6 @@
         let currentTab = 'form';
 
         const N8N_PROCESS_WEBHOOK = 'https://advidere.app.n8n.cloud/webhook/fieldvoice-refine-v6';
-
-        // Generate UUID for new records
-        function generateId() {
-            return crypto.randomUUID();
-        }
 
         // ============ INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
@@ -2757,13 +2753,6 @@
                 day: 'numeric'
             });
             document.getElementById('headerDate').textContent = dateStr;
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
         }
 
         // ============ FINAL REVIEW ============

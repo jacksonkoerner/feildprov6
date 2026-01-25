@@ -21,6 +21,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./js/config.js"></script>
     <script src="./js/pwa-utils.js"></script>
+    <script src="./js/ui-utils.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -180,34 +181,6 @@
         }
 
         // ============ UI HELPERS ============
-        function escapeHtml(str) {
-            if (!str) return '';
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
-
-        function formatDate(dateStr) {
-            if (!dateStr) return 'Unknown date';
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            });
-        }
-
-        function formatTime(isoStr) {
-            if (!isoStr) return '';
-            const date = new Date(isoStr);
-            return date.toLocaleTimeString('en-US', {
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-        }
-
         function getStatusBadge(status) {
             switch (status) {
                 case 'draft':
@@ -235,18 +208,6 @@
                         borderColor: 'border-slate-400'
                     };
             }
-        }
-
-        function showToast(message, type = 'success') {
-            const existing = document.querySelector('.toast-msg');
-            if (existing) existing.remove();
-            const colors = { success: 'bg-safety-green', warning: 'bg-dot-orange', error: 'bg-red-600', info: 'bg-dot-blue' };
-            const icons = { success: 'fa-check', warning: 'fa-exclamation-triangle', error: 'fa-times-circle', info: 'fa-info-circle' };
-            const toast = document.createElement('div');
-            toast.className = `toast-msg fixed bottom-24 left-1/2 -translate-x-1/2 ${colors[type] || colors.success} text-white px-6 py-3 font-bold text-sm shadow-lg z-50 flex items-center gap-2 uppercase`;
-            toast.innerHTML = `<i class="fas ${icons[type] || icons.success}"></i>${escapeHtml(message)}`;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
         }
 
         // ============ RENDER FUNCTIONS ============
