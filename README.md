@@ -69,7 +69,6 @@
 ├── finalreview.html        # Read-only DOT RPR Daily Report viewer for finalized reports
 ├── archives.html           # Report archives with swipe-to-delete functionality
 ├── drafts.html             # Drafts & offline queue management
-├── editor.html             # Photo editor & section-specific editing
 ├── permissions.html        # System setup, permission testing (mic, camera, GPS)
 ├── permission-debug.html   # Permission debugging and troubleshooting utility
 ├── project-config.html     # Project & contractor configuration management
@@ -122,7 +121,6 @@
 | `finalreview.html` | ~2,320 | Read-only DOT RPR Daily Report viewer matching official DOT format with 4+ page layout, print-optimized CSS, contractor-based work summary, operations/equipment tables, and photo grid |
 | `archives.html` | ~566 | Report history with swipe-to-delete, date-sorted report list, view finalized reports |
 | `drafts.html` | ~699 | Drafts & offline queue management - displays pending reports waiting to sync when online |
-| `editor.html` | ~1,109 | Photo capture with GPS embedding, full-size photo cards with orientation handling, editable captions |
 | `permissions.html` | ~1,596 | Permission testing (mic, camera, GPS), iOS-specific instructions for native dictation |
 | `permission-debug.html` | ~1,074 | Debugging utility for troubleshooting permission issues |
 | `project-config.html` | ~2,106 | Project management with document import, contractor roster, equipment inventory, and contract details |
@@ -690,7 +688,7 @@ The application uses n8n webhooks for AI text refinement and document extraction
 | Permission | Purpose | How to Test |
 |------------|---------|-------------|
 | **Microphone** | Native keyboard dictation support | `permissions.html` → Enable Microphone → Start Test |
-| **Camera** | Photo documentation | `editor.html` or inline photo capture |
+| **Camera** | Photo documentation | `quick-interview.html` inline photo capture |
 | **Geolocation** | GPS for weather & photo timestamps | Auto-requested on first weather sync |
 
 ### iOS Dictation Requirements
@@ -911,7 +909,6 @@ npx serve .
 | finalreview.html | 2,320 | 89 KB |
 | archives.html | 566 | 25 KB |
 | drafts.html | 699 | 30 KB |
-| editor.html | 1,109 | 50 KB |
 | permissions.html | 1,596 | 81 KB |
 | permission-debug.html | 1,074 | 53 KB |
 | project-config.html | 2,106 | 100 KB |
@@ -922,7 +919,7 @@ npx serve .
 | manifest.json | 113 | 3 KB |
 | icons/ | - | ~3 KB |
 | assets/ | - | ~328 KB |
-| **Total** | **~20,914** | **~1.4 MB** |
+| **Total** | **~19,805** | **~1.3 MB** |
 
 ---
 
