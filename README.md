@@ -75,7 +75,6 @@
 ├── settings.html           # Inspector profile & personal information
 ├── landing.html            # Marketing/onboarding landing page
 ├── admin-debug.html        # Admin debugging tool for data investigation
-├── sw.js                   # Service worker for PWA offline support
 ├── manifest.json           # PWA manifest with app metadata and icons
 ├── package.json            # NPM config (devDependency: Sharp for icon generation)
 ├── generate-icons.js       # Script to generate PWA icons from SVG
@@ -104,6 +103,13 @@
 │   ├── icon-384x384-maskable.png
 │   ├── icon-512x512.png
 │   └── icon-512x512-maskable.png
+├── js/                     # Shared JavaScript modules
+│   ├── sw.js               # Service worker for PWA offline support
+│   ├── config.js           # Supabase credentials and constants
+│   ├── supabase-utils.js   # Database conversion utilities
+│   ├── pwa-utils.js        # Service worker registration, offline banner
+│   ├── ui-utils.js         # UI helper functions (escapeHtml, generateId, etc.)
+│   └── media-utils.js      # Photo capture, compression, GPS utilities
 ├── docs/                   # Technical documentation
 │   ├── project-config-spec.md
 │   ├── quick-interview-spec.md
@@ -757,7 +763,7 @@ FieldVoice Pro is a fully installable Progressive Web App (PWA) that provides of
 
 ### Service Worker Details
 
-**File:** `sw.js`
+**File:** `js/sw.js`
 
 **Cache Strategy:**
 - **Static Assets (Cache-First):** HTML files, manifest, icons cached on install
@@ -766,11 +772,11 @@ FieldVoice Pro is a fully installable Progressive Web App (PWA) that provides of
 
 **Cache Versioning:**
 ```javascript
-const CACHE_VERSION = 'v1.5.0';
+const CACHE_VERSION = 'v1.11.0';
 const CACHE_NAME = `fieldvoice-pro-${CACHE_VERSION}`;
 ```
 
-To force a cache update, increment the version number in `sw.js`.
+To force a cache update, increment the version number in `js/sw.js`.
 
 ### Manifest Configuration
 
@@ -963,7 +969,7 @@ When working on this codebase, follow these rules:
 | settings.html | 538 | 26 KB |
 | landing.html | 1,560 | 80 KB |
 | admin-debug.html | 277 | 11 KB |
-| sw.js | 208 | 7 KB |
+| js/sw.js | 214 | 7 KB |
 | manifest.json | 113 | 3 KB |
 | icons/ | - | ~3 KB |
 | assets/ | - | ~328 KB |
