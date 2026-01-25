@@ -110,13 +110,15 @@ This section contains technical reference information for AI assistants and deve
 │   ├── ui-utils.js         # UI helper functions
 │   └── media-utils.js      # Photo capture, compression, GPS
 ├── docs/                   # Technical documentation
-│   ├── project-config-spec.md
-│   ├── quick-interview-spec.md
-│   ├── report-page-spec.md
-│   ├── finalreview-spec.md
-│   ├── current-data-flow.md
-│   ├── data-flow-audit.md
-│   └── supabase-schema.md
+│   ├── application-workflows.md      # Detailed workflow diagrams
+│   ├── current-data-flow.md          # Data flow mapping
+│   ├── data-flow-audit.md            # Table usage audit by page
+│   ├── supabase-schema.md            # Database schema docs
+│   ├── project-config-spec.md        # Page spec
+│   ├── quick-interview-spec.md       # Page spec
+│   ├── report-page-spec.md           # Page spec
+│   ├── finalreview-spec.md           # Page spec
+│   └── report-finalreview-archives-investigation.md
 ├── migrations/             # Database migration scripts
 │   └── 001_add_guided_section_columns.sql
 └── README.md
@@ -345,6 +347,26 @@ npx serve .
 2. Add Supabase table/column if needed
 3. Update `buildProcessPayload()` for AI processing
 4. Add rendering in `report.html` and `finalreview.html`
+
+## Security Considerations
+
+### Data Privacy
+- All report data stored in Supabase with row-level security
+- Photos stored as base64 in Supabase
+- GPS coordinates embedded in photos for audit purposes
+
+### Supabase Security
+- Row-level security (RLS) policies protect data
+- Anonymous key used for public operations
+- Service role key (if used) should never be exposed client-side
+
+### Webhook Security
+- Webhook URLs should be configured with appropriate authentication in n8n
+- All webhook endpoints use HTTPS
+
+### HTTPS Requirement
+- Camera, microphone, and geolocation APIs require secure context (HTTPS)
+- Development with localhost is allowed by browsers
 
 ## File Size Reference
 
