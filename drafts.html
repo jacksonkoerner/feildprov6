@@ -469,7 +469,7 @@
                 const payload = draft.payload || buildPayloadFromDraft(draft);
 
                 // Call the AI processing webhook
-                const webhookUrl = 'https://n8n.koernerfamily.app/webhook/process-report';
+                const webhookUrl = 'https://advidere.app.n8n.cloud/webhook/fieldvoice-refine-v6';
                 const response = await fetch(webhookUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -507,24 +507,46 @@
         }
 
         function buildPayloadFromDraft(draft) {
-            // Build a minimal payload for AI processing from draft data
+            // Build payload matching quick-interview.html's buildProcessPayload() structure
             const data = draft.data || {};
+            const reportKey = `${draft.projectId}_${draft.reportDate}`;
+
             return {
-                reportId: null,
-                projectId: draft.projectId,
-                projectName: draft.projectName,
-                reportDate: draft.reportDate,
-                captureMode: draft.captureMode,
-                workSummary: data.workSummary || data.guidedNotes?.workSummary || '',
-                freeformNotes: data.freeformNotes || data.fieldNotes?.freeformNotes || '',
-                siteConditions: data.siteConditions || data.overview?.weather?.jobSiteCondition || '',
-                safetyNotes: data.safetyNotes || [],
-                issuesNotes: data.issuesNotes || [],
-                activities: data.activities || [],
-                operations: data.operations || [],
-                equipment: data.equipment || [],
-                photos: data.photos || [],
-                weather: data.weather || {}
+                reportId: reportKey,
+                captureMode: draft.captureMode || 'guided',
+
+                projectContext: {
+                    projectId: draft.projectId || null,
+                    projectName: draft.projectName || '',
+                    noabProjectNo: data.project?.noabProjectNo || '',
+                    location: data.project?.location || '',
+                    engineer: data.project?.engineer || '',
+                    primeContractor: data.project?.primeContractor || '',
+                    contractors: data.project?.contractors || [],
+                    equipment: data.project?.equipment || []
+                },
+
+                fieldNotes: draft.captureMode === 'minimal'
+                    ? { freeformNotes: data.fieldNotes?.freeformNotes || '' }
+                    : {
+                        workSummary: data.guidedNotes?.workSummary || '',
+                        issues: data.guidedNotes?.issues || '',
+                        safety: data.guidedNotes?.safety || ''
+                      },
+
+                weather: data.overview?.weather || data.weather || {},
+
+                photos: (data.photos || []).map(p => ({
+                    id: p.id,
+                    caption: p.caption || '',
+                    timestamp: p.timestamp,
+                    date: p.date,
+                    time: p.time,
+                    gps: p.gps
+                })),
+
+                reportDate: draft.reportDate || data.overview?.date || new Date().toLocaleDateString(),
+                inspectorName: data.overview?.completedBy || ''
             };
         }
 

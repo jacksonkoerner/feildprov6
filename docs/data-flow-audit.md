@@ -321,7 +321,7 @@
 **URL Parameters:** None
 
 **Webhooks:**
-- `POST https://n8n.koernerfamily.app/webhook/process-report` (AI processing)
+- `POST https://advidere.app.n8n.cloud/webhook/fieldvoice-refine-v6` (AI processing)
 
 **Navigates To:**
 - `index.html` (back, after sync all)
@@ -605,15 +605,15 @@ SUPPORTING PAGES:
 | `ACTIVE_PROJECT_KEY` in archives.html | Defined (line 161) | **Never used** - Constant defined but no getItem/setItem call |
 | `fvp_speech_granted` | permissions.html | **Write location unknown** - Read but never written |
 
-### 6.3 Inconsistent Webhook URLs
+### 6.3 Webhook URLs (Consistent)
 
 | Page | Webhook URL |
 |------|-------------|
 | quick-interview.html | `https://advidere.app.n8n.cloud/webhook/fieldvoice-refine-v6` |
 | report.html | `https://advidere.app.n8n.cloud/webhook/fieldvoice-refine-v6` |
-| drafts.html | `https://n8n.koernerfamily.app/webhook/process-report` |
+| drafts.html | `https://advidere.app.n8n.cloud/webhook/fieldvoice-refine-v6` |
 
-**Issue:** drafts.html uses a **different webhook domain** (`n8n.koernerfamily.app`) than the other pages (`advidere.app.n8n.cloud`).
+All pages now use the same webhook endpoint for AI processing.
 
 ### 6.4 Stale Cache Risks
 
@@ -740,8 +740,7 @@ user_profiles (id, full_name, title, company, email, phone, updated_at)
 | Service | URL | Purpose | Used By |
 |---------|-----|---------|---------|
 | Supabase | `https://ruzadotbgkjhgwkvotlz.supabase.co` | Database & Storage | All pages |
-| n8n (advidere) | `https://advidere.app.n8n.cloud/webhook/...` | AI Processing, Project Extraction | quick-interview, report, project-config |
-| n8n (koerner) | `https://n8n.koernerfamily.app/webhook/...` | AI Processing (drafts) | drafts |
+| n8n | `https://advidere.app.n8n.cloud/webhook/...` | AI Processing, Project Extraction | quick-interview, report, drafts, project-config |
 | Open-Meteo | `https://api.open-meteo.com/v1/forecast` | Weather Data | index, quick-interview |
 
 ---
