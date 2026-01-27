@@ -14,45 +14,62 @@
 /**
  * Convert Supabase project row to JS format
  *
- * DB columns: id, user_id, name, project_number, location, client_name,
- *             is_active, created_at, updated_at
+ * DB columns: id, user_id, project_name, noab_project_no, cno_solicitation_no,
+ *             location, engineer, prime_contractor, notice_to_proceed,
+ *             contract_duration, expected_completion, default_start_time,
+ *             default_end_time, weather_days, logo, status, created_at, updated_at
  *
  * @param {Object} row - Supabase project row
- * @returns {Object} JS project object with empty contractors array
+ * @returns {Object} JS project object
  */
-export function fromSupabaseProject(row) {
-  return {
-    id: row.id,
-    userId: row.user_id || null,
-    name: row.name || '',
-    projectNumber: row.project_number || '',
-    location: row.location || '',
-    clientName: row.client_name || '',
-    isActive: row.is_active ?? true,
-    createdAt: row.created_at || null,
-    updatedAt: row.updated_at || null,
-    contractors: []
-  };
+function fromSupabaseProject(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        projectName: row.project_name || '',
+        noabProjectNo: row.noab_project_no || '',
+        cnoSolicitationNo: row.cno_solicitation_no || '',
+        location: row.location || '',
+        engineer: row.engineer || '',
+        primeContractor: row.prime_contractor || '',
+        noticeToProceed: row.notice_to_proceed || null,
+        contractDuration: row.contract_duration || null,
+        expectedCompletion: row.expected_completion || null,
+        defaultStartTime: row.default_start_time || '',
+        defaultEndTime: row.default_end_time || '',
+        weatherDays: row.weather_days || null,
+        logo: row.logo || null,
+        status: row.status || 'active',
+        userId: row.user_id || null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    };
 }
 
 /**
  * Convert JS project object to Supabase format
  *
  * @param {Object} project - JS project object
- * @param {string} userId - User ID (required for new projects)
  * @returns {Object} Supabase row format
  */
-export function toSupabaseProject(project, userId) {
-  return {
-    id: project.id,
-    user_id: userId,
-    name: project.name || '',
-    project_number: project.projectNumber || '',
-    location: project.location || '',
-    client_name: project.clientName || '',
-    is_active: project.isActive ?? true,
-    updated_at: new Date().toISOString()
-  };
+function toSupabaseProject(project) {
+    if (!project) return null;
+    return {
+        project_name: project.projectName || project.name || '',
+        noab_project_no: project.noabProjectNo || '',
+        cno_solicitation_no: project.cnoSolicitationNo || '',
+        location: project.location || '',
+        engineer: project.engineer || '',
+        prime_contractor: project.primeContractor || '',
+        notice_to_proceed: project.noticeToProceed || null,
+        contract_duration: project.contractDuration || null,
+        expected_completion: project.expectedCompletion || null,
+        default_start_time: project.defaultStartTime || '',
+        default_end_time: project.defaultEndTime || '',
+        weather_days: project.weatherDays || null,
+        logo: project.logo || null,
+        status: project.status || 'active'
+    };
 }
 
 // ============================================================================
@@ -62,23 +79,26 @@ export function toSupabaseProject(project, userId) {
 /**
  * Convert Supabase contractor row to JS format
  *
- * DB columns: id, project_id, name, company, trade, is_active,
- *             created_at, deactivated_at
+ * DB columns: id, project_id, name, company, abbreviation, type, trades,
+ *             status, added_date, removed_date, created_at
  *
  * @param {Object} row - Supabase contractor row
  * @returns {Object} JS contractor object
  */
-export function fromSupabaseContractor(row) {
-  return {
-    id: row.id,
-    projectId: row.project_id || null,
-    name: row.name || '',
-    company: row.company || '',
-    trade: row.trade || '',
-    isActive: row.is_active ?? true,
-    createdAt: row.created_at || null,
-    deactivatedAt: row.deactivated_at || null
-  };
+function fromSupabaseContractor(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        projectId: row.project_id,
+        name: row.name || '',
+        company: row.company || '',
+        abbreviation: row.abbreviation || '',
+        type: row.type || 'sub',
+        trades: row.trades || '',
+        status: row.status || 'active',
+        addedDate: row.added_date || row.created_at,
+        removedDate: row.removed_date || null
+    };
 }
 
 /**
@@ -88,16 +108,19 @@ export function fromSupabaseContractor(row) {
  * @param {string} projectId - Project ID
  * @returns {Object} Supabase row format
  */
-export function toSupabaseContractor(contractor, projectId) {
-  return {
-    id: contractor.id,
-    project_id: projectId,
-    name: contractor.name || '',
-    company: contractor.company || '',
-    trade: contractor.trade || '',
-    is_active: contractor.isActive ?? true,
-    deactivated_at: contractor.deactivatedAt || null
-  };
+function toSupabaseContractor(contractor, projectId) {
+    if (!contractor) return null;
+    return {
+        project_id: projectId || contractor.projectId,
+        name: contractor.name || '',
+        company: contractor.company || '',
+        abbreviation: contractor.abbreviation || '',
+        type: contractor.type || 'sub',
+        trades: contractor.trades || '',
+        status: contractor.status || 'active',
+        added_date: contractor.addedDate || null,
+        removed_date: contractor.removedDate || null
+    };
 }
 
 // ============================================================================
@@ -113,7 +136,7 @@ export function toSupabaseContractor(contractor, projectId) {
  * @param {Object} row - Supabase report row
  * @returns {Object} JS report object
  */
-export function fromSupabaseReport(row) {
+function fromSupabaseReport(row) {
   return {
     id: row.id,
     projectId: row.project_id || null,
@@ -138,7 +161,7 @@ export function fromSupabaseReport(row) {
  * @param {string} deviceId - Device ID
  * @returns {Object} Supabase row format
  */
-export function toSupabaseReport(report, projectId, userId, deviceId) {
+function toSupabaseReport(report, projectId, userId, deviceId) {
   const row = {
     project_id: projectId,
     user_id: userId,
@@ -182,7 +205,7 @@ export function toSupabaseReport(report, projectId, userId, deviceId) {
  * @param {Object} row - Supabase entry row
  * @returns {Object} JS entry object
  */
-export function fromSupabaseEntry(row) {
+function fromSupabaseEntry(row) {
   return {
     id: row.id,
     reportId: row.report_id || null,
@@ -203,7 +226,7 @@ export function fromSupabaseEntry(row) {
  * @param {string} reportId - Report ID
  * @returns {Object} Supabase row format
  */
-export function toSupabaseEntry(entry, reportId) {
+function toSupabaseEntry(entry, reportId) {
   const row = {
     report_id: reportId,
     local_id: entry.localId || entry.id || null,
@@ -239,7 +262,7 @@ export function toSupabaseEntry(entry, reportId) {
  * @param {Object} row - Supabase raw capture row
  * @returns {Object} JS raw capture object
  */
-export function fromSupabaseRawCapture(row) {
+function fromSupabaseRawCapture(row) {
   return {
     id: row.id,
     reportId: row.report_id || null,
@@ -264,7 +287,7 @@ export function fromSupabaseRawCapture(row) {
  * @param {string} reportId - Report ID
  * @returns {Object} Supabase row format
  */
-export function toSupabaseRawCapture(captureData, reportId) {
+function toSupabaseRawCapture(captureData, reportId) {
   // Build raw_data object from entries, contractors, equipment
   const rawData = {
     entries: captureData.entries || [],
@@ -306,7 +329,7 @@ export function toSupabaseRawCapture(captureData, reportId) {
  * @param {Object} row - Supabase AI response row
  * @returns {Object} JS AI response object
  */
-export function fromSupabaseAIResponse(row) {
+function fromSupabaseAIResponse(row) {
   return {
     id: row.id,
     reportId: row.report_id || null,
@@ -325,7 +348,7 @@ export function fromSupabaseAIResponse(row) {
  * @param {string} reportId - Report ID
  * @returns {Object} Supabase row format
  */
-export function toSupabaseAIResponse(aiData, reportId) {
+function toSupabaseAIResponse(aiData, reportId) {
   return {
     report_id: reportId,
     raw_response: aiData.rawResponse || null,
@@ -354,7 +377,7 @@ export function toSupabaseAIResponse(aiData, reportId) {
  * @param {Object} row - Supabase final report row
  * @returns {Object} JS final report object with nested structure
  */
-export function fromSupabaseFinal(row) {
+function fromSupabaseFinal(row) {
   return {
     id: row.id,
     reportId: row.report_id || null,
@@ -419,7 +442,7 @@ export function fromSupabaseFinal(row) {
  * @param {string} reportId - Report ID
  * @returns {Object} Supabase row format (flat)
  */
-export function toSupabaseFinal(finalData, reportId) {
+function toSupabaseFinal(finalData, reportId) {
   const weather = finalData.weather || {};
   const content = finalData.content || {};
   const toggles = finalData.toggles || {};
@@ -501,7 +524,7 @@ export function toSupabaseFinal(finalData, reportId) {
  * @param {Object} row - Supabase photo row
  * @returns {Object} JS photo object
  */
-export function fromSupabasePhoto(row) {
+function fromSupabasePhoto(row) {
   return {
     id: row.id,
     reportId: row.report_id || null,
@@ -522,7 +545,7 @@ export function fromSupabasePhoto(row) {
  * @param {string} reportId - Report ID
  * @returns {Object} Supabase row format
  */
-export function toSupabasePhoto(photo, reportId) {
+function toSupabasePhoto(photo, reportId) {
   const row = {
     report_id: reportId,
     photo_url: photo.photoUrl || photo.photo_url || '',
@@ -554,7 +577,7 @@ export function toSupabasePhoto(photo, reportId) {
  * @param {Object} row - Supabase equipment row
  * @returns {Object} JS equipment object
  */
-export function fromSupabaseEquipment(row) {
+function fromSupabaseEquipment(row) {
   return {
     id: row.id,
     projectId: row.project_id || null,
@@ -572,7 +595,7 @@ export function fromSupabaseEquipment(row) {
  * @param {string} projectId - Project ID
  * @returns {Object} Supabase row format
  */
-export function toSupabaseEquipment(equipment, projectId) {
+function toSupabaseEquipment(equipment, projectId) {
   return {
     id: equipment.id,
     project_id: projectId,
@@ -581,3 +604,27 @@ export function toSupabaseEquipment(equipment, projectId) {
     is_active: equipment.isActive ?? true
   };
 }
+
+// ============================================================================
+// GLOBAL EXPORTS
+// ============================================================================
+// Make functions globally available (loaded as regular script, not ES module)
+
+window.fromSupabaseProject = fromSupabaseProject;
+window.toSupabaseProject = toSupabaseProject;
+window.fromSupabaseContractor = fromSupabaseContractor;
+window.toSupabaseContractor = toSupabaseContractor;
+window.fromSupabaseReport = fromSupabaseReport;
+window.toSupabaseReport = toSupabaseReport;
+window.fromSupabaseEntry = fromSupabaseEntry;
+window.toSupabaseEntry = toSupabaseEntry;
+window.fromSupabaseRawCapture = fromSupabaseRawCapture;
+window.toSupabaseRawCapture = toSupabaseRawCapture;
+window.fromSupabaseAIResponse = fromSupabaseAIResponse;
+window.toSupabaseAIResponse = toSupabaseAIResponse;
+window.fromSupabaseFinal = fromSupabaseFinal;
+window.toSupabaseFinal = toSupabaseFinal;
+window.fromSupabasePhoto = fromSupabasePhoto;
+window.toSupabasePhoto = toSupabasePhoto;
+window.fromSupabaseEquipment = fromSupabaseEquipment;
+window.toSupabaseEquipment = toSupabaseEquipment;
