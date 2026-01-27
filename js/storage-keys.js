@@ -12,7 +12,7 @@
  * All localStorage keys used by FieldVoice Pro v6
  * @constant {Object}
  */
-export const STORAGE_KEYS = {
+const STORAGE_KEYS = {
   USER_PROFILE: 'fvp_user_profile',
   PROJECTS: 'fvp_projects',
   ACTIVE_PROJECT_ID: 'fvp_active_project_id',
@@ -151,7 +151,7 @@ export const STORAGE_KEYS = {
  *
  * @returns {string} The device UUID
  */
-export function getDeviceId() {
+function getDeviceId() {
   let deviceId = localStorage.getItem(STORAGE_KEYS.DEVICE_ID);
 
   if (!deviceId) {
@@ -169,7 +169,7 @@ export function getDeviceId() {
  * @param {string} key - The localStorage key
  * @returns {*} The parsed value, or null if not found or parse fails
  */
-export function getStorageItem(key) {
+function getStorageItem(key) {
   try {
     const item = localStorage.getItem(key);
     if (item === null) {
@@ -189,7 +189,7 @@ export function getStorageItem(key) {
  * @param {*} value - The value to store (will be JSON stringified)
  * @returns {boolean} True on success, false on failure
  */
-export function setStorageItem(key, value) {
+function setStorageItem(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
@@ -204,7 +204,7 @@ export function setStorageItem(key, value) {
  *
  * @param {string} key - The localStorage key to remove
  */
-export function removeStorageItem(key) {
+function removeStorageItem(key) {
   localStorage.removeItem(key);
 }
 
@@ -214,7 +214,7 @@ export function removeStorageItem(key) {
  * @param {string} reportId - The report UUID to find
  * @returns {Report|null} The report object or null if not found
  */
-export function getCurrentReport(reportId) {
+function getCurrentReport(reportId) {
   const reports = getStorageItem(STORAGE_KEYS.CURRENT_REPORTS);
 
   if (!reports || typeof reports !== 'object') {
@@ -231,7 +231,7 @@ export function getCurrentReport(reportId) {
  * @param {Report} report - The report object to save (must have id property)
  * @returns {boolean} True on success, false on failure
  */
-export function saveCurrentReport(report) {
+function saveCurrentReport(report) {
   if (!report || !report.id) {
     console.error('Cannot save report: missing id');
     return false;
@@ -251,7 +251,7 @@ export function saveCurrentReport(report) {
  * @param {string} reportId - The report UUID to delete
  * @returns {boolean} True on success, false on failure
  */
-export function deleteCurrentReport(reportId) {
+function deleteCurrentReport(reportId) {
   const reports = getStorageItem(STORAGE_KEYS.CURRENT_REPORTS);
 
   if (!reports || typeof reports !== 'object') {
@@ -269,7 +269,7 @@ export function deleteCurrentReport(reportId) {
  *
  * @returns {Project|null} The active project object or null if none set
  */
-export function getActiveProject() {
+function getActiveProject() {
   const activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
 
   if (!activeProjectId) {
@@ -296,7 +296,7 @@ export function getActiveProject() {
  * @param {number} [operation.timestamp] - When operation was queued (defaults to now)
  * @returns {boolean} True on success, false on failure
  */
-export function addToSyncQueue(operation) {
+function addToSyncQueue(operation) {
   const queue = getStorageItem(STORAGE_KEYS.SYNC_QUEUE) || [];
 
   // Ensure timestamp is set
@@ -316,14 +316,14 @@ export function addToSyncQueue(operation) {
  *
  * @returns {SyncOperation[]} Array of queued operations (empty array if none)
  */
-export function getSyncQueue() {
+function getSyncQueue() {
   return getStorageItem(STORAGE_KEYS.SYNC_QUEUE) || [];
 }
 
 /**
  * Clears all operations from the sync queue
  */
-export function clearSyncQueue() {
+function clearSyncQueue() {
   removeStorageItem(STORAGE_KEYS.SYNC_QUEUE);
   console.log('Sync queue cleared');
 }
