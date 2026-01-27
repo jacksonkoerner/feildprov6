@@ -21,7 +21,8 @@ export const STORAGE_KEYS = {
   DRAFTS: 'fvp_drafts',
   SYNC_QUEUE: 'fvp_sync_queue',
   LAST_SYNC: 'fvp_last_sync',
-  DEVICE_ID: 'fvp_device_id'
+  DEVICE_ID: 'fvp_device_id',
+  OFFLINE_QUEUE: 'fvp_offline_queue'
 };
 
 /**
