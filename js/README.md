@@ -10,6 +10,7 @@
 | storage-keys.js | localStorage keys + helpers (v6) | (standalone) |
 | report-rules.js | Business logic validation (v6) | storage-keys.js |
 | supabase-utils.js | Data converters (v6 schema) | config.js |
+| sync-manager.js | Real-time entry backup and offline sync | supabase-utils.js |
 | pwa-utils.js | Offline/PWA features | (standalone) |
 | ui-utils.js | UI helpers | (standalone) |
 | media-utils.js | Photo/GPS utilities | (standalone) |
@@ -131,6 +132,31 @@
 **Import:** After config.js
 ```html
 <script src="./js/supabase-utils.js"></script>
+```
+
+---
+
+## sync-manager.js
+
+**Purpose:** Real-time entry backup and offline sync
+
+**Exports:**
+- `queueEntryBackup(reportId, entry)` - Debounced entry backup
+- `backupEntry(reportId, entry)` - Immediate entry backup
+- `backupAllEntries(reportId, entries)` - Batch backup
+- `deleteEntry(reportId, localId)` - Soft delete entry
+- `syncReport(report, projectId)` - Create/update report in Supabase
+- `syncRawCapture(captureData, reportId)` - Sync raw capture
+- `processOfflineQueue()` - Process pending operations
+- `initSyncManager()` - Initialize listeners
+- `destroySyncManager()` - Cleanup
+- `getPendingSyncCount()` - Get queue length
+
+**Used by:** quick-interview.js, report.js
+
+**Import:** After storage-keys.js and supabase-utils.js
+```html
+<script src="./js/sync-manager.js"></script>
 ```
 
 ---

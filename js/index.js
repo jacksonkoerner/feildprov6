@@ -612,6 +612,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     try {
+        // Initialize sync manager
+        initSyncManager();
+
         // Load projects from Supabase (projects still live there)
         await loadProjects();
         await loadActiveProject();
