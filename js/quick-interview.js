@@ -16,17 +16,18 @@
         /**
          * Check if report is already refined - redirect if so
          * This prevents users from editing after AI refinement
+         * v6: Uses canReturnToNotes() from report-rules.js
          */
         async function checkReportState() {
-            const activeProjectId = localStorage.getItem('fvp_active_project');
+            const activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
             if (!activeProjectId) {
                 return true; // No project selected, allow page to load (will show project picker)
             }
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = getTodayDateString();
 
             try {
-                const { data: report, error } = await supabaseClient
+                const { data: reportData, error } = await supabaseClient
                     .from('reports')
                     .select('id, status')
                     .eq('project_id', activeProjectId)
@@ -38,13 +39,16 @@
                     return true; // Allow page to load on error, let normal flow handle it
                 }
 
-                // Status flow: draft → pending_refine → refined → submitted → finalized
-                // Note: 'finalized' is reserved for future admin approval workflow (not currently set by any code path)
-                if (report && ['refined', 'submitted', 'finalized'].includes(report.status)) {
-                    // Cannot edit after AI refinement - redirect to report page
-                    console.log('[STATE CHECK] Report already refined, redirecting to report.html');
-                    window.location.href = `report.html?date=${today}`;
-                    return false;
+                if (reportData) {
+                    // v6: Use canReturnToNotes() from report-rules.js to check if editing is allowed
+                    // Note: canReturnToNotes expects a reportId, but we check status directly here
+                    // since we already have the status from Supabase
+                    const canEdit = reportData.status === REPORT_STATUS.DRAFT;
+                    if (!canEdit) {
+                        console.log('[STATE CHECK] Cannot edit - status:', reportData.status);
+                        window.location.href = `report.html?date=${today}`;
+                        return false;
+                    }
                 }
 
                 return true;
@@ -55,16 +59,17 @@
         }
 
         // ============ LOCALSTORAGE DRAFT MANAGEMENT ============
-        const QUICK_INTERVIEW_STORAGE_KEY = 'fvp_quick_interview_draft';
-        const OFFLINE_QUEUE_KEY = 'fvp_offline_queue';
+        // v6: Use STORAGE_KEYS from storage-keys.js for all localStorage operations
+        // Draft storage uses STORAGE_KEYS.CURRENT_REPORTS via getCurrentReport()/saveCurrentReport()
+        // Sync queue uses STORAGE_KEYS.SYNC_QUEUE via getSyncQueue()/addToSyncQueue()
 
         /**
          * Save all form data to localStorage
          * This is called during editing - data only goes to Supabase on FINISH
          */
         function saveToLocalStorage() {
-            const activeProjectId = localStorage.getItem('fvp_active_project');
-            const todayStr = new Date().toISOString().split('T')[0];
+            const activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
+            const todayStr = getTodayDateString();
 
             const data = {
                 projectId: activeProjectId,
@@ -134,8 +139,19 @@
             };
 
             try {
-                localStorage.setItem(QUICK_INTERVIEW_STORAGE_KEY, JSON.stringify(data));
-                console.log('[LOCAL] Draft saved to localStorage');
+                // v6: Use saveCurrentReport for draft storage
+                const reportData = {
+                    id: currentReportId || `draft_${activeProjectId}_${todayStr}`,
+                    project_id: activeProjectId,
+                    date: todayStr,
+                    status: 'draft',
+                    capture_mode: data.captureMode,
+                    created_at: report.meta?.createdAt || Date.now(),
+                    // Store the full draft data in a nested object for compatibility
+                    _draft_data: data
+                };
+                saveCurrentReport(reportData);
+                console.log('[LOCAL] Draft saved to localStorage via saveCurrentReport');
             } catch (e) {
                 console.error('[LOCAL] Failed to save to localStorage:', e);
                 // If localStorage is full, try to continue without local save
@@ -147,20 +163,24 @@
          * Returns null if no valid draft exists for current project/date
          */
         function loadFromLocalStorage() {
-            const stored = localStorage.getItem(QUICK_INTERVIEW_STORAGE_KEY);
-            if (!stored) return null;
+            const activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
+            const today = getTodayDateString();
+            const draftId = currentReportId || `draft_${activeProjectId}_${today}`;
 
             try {
-                const data = JSON.parse(stored);
+                // v6: Use getCurrentReport to load draft
+                const storedReport = getCurrentReport(draftId);
+                if (!storedReport) return null;
+
+                // Extract draft data from stored report
+                const data = storedReport._draft_data;
+                if (!data) return null;
 
                 // Verify it's for the same project and date
-                const activeProjectId = localStorage.getItem('fvp_active_project');
-                const today = new Date().toISOString().split('T')[0];
-
                 if (data.projectId !== activeProjectId || data.reportDate !== today) {
                     // Different project or date - clear old draft
                     console.log('[LOCAL] Draft is for different project/date, clearing');
-                    localStorage.removeItem(QUICK_INTERVIEW_STORAGE_KEY);
+                    deleteCurrentReport(draftId);
                     return null;
                 }
 
@@ -168,7 +188,7 @@
                 return data;
             } catch (e) {
                 console.error('[LOCAL] Failed to parse stored draft:', e);
-                localStorage.removeItem(QUICK_INTERVIEW_STORAGE_KEY);
+                deleteCurrentReport(draftId);
                 return null;
             }
         }
@@ -269,29 +289,15 @@
          * Also removes from offline queue if present
          */
         function clearLocalStorageDraft() {
-            localStorage.removeItem(QUICK_INTERVIEW_STORAGE_KEY);
+            const activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
+            const todayStr = getTodayDateString();
+            const draftId = currentReportId || `draft_${activeProjectId}_${todayStr}`;
 
-            // Also clear from offline queue if present
-            const activeProjectId = localStorage.getItem('fvp_active_project');
-            const todayStr = new Date().toISOString().split('T')[0];
+            // v6: Use deleteCurrentReport to clear draft
+            deleteCurrentReport(draftId);
 
-            try {
-                const stored = localStorage.getItem(OFFLINE_QUEUE_KEY);
-                if (stored) {
-                    const queue = JSON.parse(stored);
-                    const initialLength = queue.drafts?.length || 0;
-                    queue.drafts = (queue.drafts || []).filter(
-                        d => !(d.projectId === activeProjectId && d.reportDate === todayStr)
-                    );
-                    if (queue.drafts.length !== initialLength) {
-                        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-                        console.log('[OFFLINE] Removed synced report from offline queue');
-                    }
-                }
-            } catch (e) {
-                console.error('[OFFLINE] Failed to clear from offline queue:', e);
-            }
-
+            // v6: Sync queue is now managed by sync-manager.js
+            // The processOfflineQueue() function handles cleanup automatically
             console.log('[LOCAL] Draft cleared from localStorage');
         }
 
@@ -848,65 +854,47 @@
 
         /**
          * Handle offline/error scenario for AI processing
-         * Saves to offline queue for later sync from drafts.html
+         * v6: Uses addToSyncQueue() from storage-keys.js for offline queue
          */
         function handleOfflineProcessing(payload, redirectToDrafts = false) {
-            const activeProjectId = localStorage.getItem('fvp_active_project');
-            const todayStr = new Date().toISOString().split('T')[0];
+            const activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
+            const todayStr = getTodayDateString();
 
-            // Build draft data for offline queue
-            const draftData = {
-                projectId: activeProjectId,
-                projectName: report.overview?.projectName || activeProject?.name || 'Unknown Project',
-                reportDate: todayStr,
-                lastSaved: new Date().toISOString(),
-                captureMode: report.meta?.captureMode || 'guided',
-                status: 'pending_sync',
-                errorMessage: null,
-                payload: payload,
+            // v6: Use addToSyncQueue for offline operations
+            const syncOperation = {
+                type: 'report',
+                action: 'upsert',
                 data: {
-                    meta: report.meta,
-                    overview: report.overview,
-                    weather: report.overview?.weather,
-                    guidedNotes: report.guidedNotes,
-                    fieldNotes: report.fieldNotes,
-                    activities: report.activities,
-                    operations: report.operations,
-                    equipment: report.equipment,
-                    photos: report.photos,
-                    safety: report.safety,
-                    generalIssues: report.generalIssues,
-                    qaqcNotes: report.qaqcNotes,
-                    contractorCommunications: report.contractorCommunications,
-                    visitorsRemarks: report.visitorsRemarks,
-                    additionalNotes: report.additionalNotes,
-                    reporter: report.reporter
-                }
+                    projectId: activeProjectId,
+                    projectName: report.overview?.projectName || activeProject?.name || 'Unknown Project',
+                    reportDate: todayStr,
+                    captureMode: report.meta?.captureMode || 'guided',
+                    payload: payload,
+                    reportData: {
+                        meta: report.meta,
+                        overview: report.overview,
+                        weather: report.overview?.weather,
+                        guidedNotes: report.guidedNotes,
+                        fieldNotes: report.fieldNotes,
+                        activities: report.activities,
+                        operations: report.operations,
+                        equipment: report.equipment,
+                        photos: report.photos,
+                        safety: report.safety,
+                        generalIssues: report.generalIssues,
+                        qaqcNotes: report.qaqcNotes,
+                        contractorCommunications: report.contractorCommunications,
+                        visitorsRemarks: report.visitorsRemarks,
+                        additionalNotes: report.additionalNotes,
+                        reporter: report.reporter
+                    }
+                },
+                timestamp: Date.now()
             };
 
-            // Save to offline queue
-            try {
-                const stored = localStorage.getItem(OFFLINE_QUEUE_KEY);
-                const queue = stored ? JSON.parse(stored) : { drafts: [] };
-
-                // Check if this project/date combo already exists
-                const existingIndex = queue.drafts.findIndex(
-                    d => d.projectId === activeProjectId && d.reportDate === todayStr
-                );
-
-                if (existingIndex >= 0) {
-                    // Update existing entry
-                    queue.drafts[existingIndex] = draftData;
-                } else {
-                    // Add new entry
-                    queue.drafts.push(draftData);
-                }
-
-                localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-                console.log('[OFFLINE] Report saved to offline queue');
-            } catch (e) {
-                console.error('[OFFLINE] Failed to save to offline queue:', e);
-            }
+            // v6: Add to sync queue using storage-keys.js helper
+            addToSyncQueue(syncOperation);
+            console.log('[OFFLINE] Report added to sync queue');
 
             // Also update local meta status
             report.meta.status = 'pending_refine';
@@ -1015,7 +1003,8 @@
 
         // ============ PROJECT & CONTRACTOR LOADING ============
         async function loadActiveProject() {
-            const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
+            // v6: Use getStorageItem with STORAGE_KEYS.ACTIVE_PROJECT_ID
+            const activeId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
             if (!activeId) {
                 activeProject = null;
                 projectContractors = [];
@@ -1057,15 +1046,9 @@
                     projectContractors = [];
                 }
 
-                // Fetch equipment for this project
-                const { data: equipmentRows, error: equipmentError } = await supabaseClient
-                    .from('equipment')
-                    .select('*')
-                    .eq('project_id', activeId);
-
-                if (!equipmentError && equipmentRows) {
-                    activeProject.equipment = equipmentRows.map(fromSupabaseEquipment);
-                }
+                // v6: Equipment is now entered per-report, not loaded from project
+                // Equipment functions removed - see renderEquipmentInput() for per-report entry
+                activeProject.equipment = [];
 
                 return activeProject;
             } catch (e) {
@@ -1693,284 +1676,81 @@
         }
 
         // ============ EQUIPMENT ============
-        function getProjectEquipment() {
-            if (!activeProject || !activeProject.equipment) return [];
-            return activeProject.equipment;
-        }
+        // v6: Equipment is now entered as text per-report, not loaded from project config
+        // Old functions removed: getProjectEquipment, getEquipmentEntry, initializeEquipment,
+        // updateEquipmentQuantity, updateEquipmentStatus, markAllEquipmentIdle, updateEquipmentTotals
 
-        function getEquipmentEntry(equipmentId) {
-            if (!report || !report.equipment) return null;
-            return report.equipment.find(e => e.equipmentId === equipmentId);
-        }
-
-        function initializeEquipment() {
-            if (!report.equipment) report.equipment = [];
-
-            const projectEquipment = getProjectEquipment();
-
-            // Ensure each equipment item from project config has an entry
-            projectEquipment.forEach(equip => {
-                const existing = report.equipment.find(e => e.equipmentId === equip.id);
-                if (!existing) {
-                    report.equipment.push({
-                        equipmentId: equip.id,
-                        contractorId: equip.contractorId,
-                        hoursUtilized: null,  // null means IDLE
-                        quantity: equip.quantity || 1
-                    });
-                } else if (existing.quantity === undefined) {
-                    // Migrate existing entries to include quantity
-                    existing.quantity = equip.quantity || 1;
-                }
-            });
-
-            // Clean up equipment entries for items no longer in project config
-            report.equipment = report.equipment.filter(e =>
-                projectEquipment.some(pe => pe.id === e.equipmentId)
-            );
-        }
-
+        /**
+         * v6: Render simple text-based equipment input
+         * Equipment is entered fresh per-report instead of selecting from project config
+         */
         function renderEquipmentCards() {
             const container = document.getElementById('equipment-list');
+            if (!container) return;
+
+            // v6: Equipment is entered fresh per-report
+            container.innerHTML = `
+                <div class="bg-white border-2 border-slate-200 p-4">
+                    <label class="text-xs font-bold text-slate-500 uppercase">Equipment Used Today</label>
+                    <textarea
+                        id="equipment-input"
+                        class="w-full mt-2 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand"
+                        rows="3"
+                        placeholder="List equipment used today, e.g.:
+- CAT 320 Excavator (2) - 8 hrs
+- John Deere Dozer (1) - 6 hrs
+- Concrete pump truck - 4 hrs"
+                        oninput="updateEquipmentNotes(this.value)"
+                    >${report.equipmentNotes || ''}</textarea>
+                    <p class="text-xs text-slate-400 mt-1"><i class="fas fa-microphone mr-1"></i>Dictate or type</p>
+                </div>
+            `;
+
+            // Hide v5 UI elements that are no longer used
             const warningEl = document.getElementById('no-project-warning-equip');
             const noEquipWarningEl = document.getElementById('no-equipment-warning');
             const totalsEl = document.getElementById('equipment-totals');
             const markAllBtn = document.getElementById('mark-all-idle-btn');
 
-            if (!activeProject) {
-                warningEl.classList.remove('hidden');
-                noEquipWarningEl.classList.add('hidden');
-                totalsEl.classList.add('hidden');
-                markAllBtn.classList.add('hidden');
-                container.innerHTML = '';
-                return;
-            }
-
-            warningEl.classList.add('hidden');
-
-            const projectEquipment = getProjectEquipment();
-
-            if (projectEquipment.length === 0) {
-                noEquipWarningEl.classList.remove('hidden');
-                totalsEl.classList.add('hidden');
-                markAllBtn.classList.add('hidden');
-                container.innerHTML = '';
-                return;
-            }
-
-            noEquipWarningEl.classList.add('hidden');
-            totalsEl.classList.remove('hidden');
-            markAllBtn.classList.remove('hidden');
-            initializeEquipment();
-
-            // Group equipment by contractor
-            const grouped = {};
-            projectContractors.forEach(c => {
-                grouped[c.id] = {
-                    contractor: c,
-                    equipment: []
-                };
-            });
-
-            projectEquipment.forEach(equip => {
-                if (grouped[equip.contractorId]) {
-                    grouped[equip.contractorId].equipment.push(equip);
-                }
-            });
-
-            // Generate status options HTML
-            const statusOptions = `
-                <option value="">IDLE</option>
-                <option value="1">1 HR</option>
-                <option value="2">2 HRS</option>
-                <option value="3">3 HRS</option>
-                <option value="4">4 HRS</option>
-                <option value="5">5 HRS</option>
-                <option value="6">6 HRS</option>
-                <option value="7">7 HRS</option>
-                <option value="8">8 HRS</option>
-                <option value="9">9 HRS</option>
-                <option value="10">10 HRS</option>
-            `;
-
-            let html = '';
-
-            Object.values(grouped).forEach(group => {
-                const contractor = group.contractor;
-                const borderColor = contractor.type === 'prime' ? 'border-l-safety-green' : 'border-l-dot-blue';
-                const headerBg = contractor.type === 'prime' ? 'bg-safety-green/10' : 'bg-dot-blue/10';
-                const titleColor = contractor.type === 'prime' ? 'text-safety-green' : 'text-dot-blue';
-
-                // Contractor group container
-                html += `<div class="equipment-group border-2 border-slate-200 ${borderColor} border-l-4 overflow-hidden">`;
-
-                // Contractor header
-                html += `
-                    <div class="${headerBg} p-3 border-b border-slate-200">
-                        <div class="flex items-center gap-2">
-                            <span class="text-base font-bold ${titleColor}">${escapeHtml(contractor.abbreviation)}</span>
-                            <span class="text-xs text-slate-500">${escapeHtml(contractor.name)}</span>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-0.5">${group.equipment.length} equipment item${group.equipment.length !== 1 ? 's' : ''}</p>
-                    </div>
-                `;
-
-                // Check if contractor has equipment
-                if (group.equipment.length === 0) {
-                    html += `
-                        <div class="p-4 text-center bg-slate-50">
-                            <i class="fas fa-truck text-slate-300 text-xl mb-2"></i>
-                            <p class="text-xs text-slate-400">No equipment for this contractor</p>
-                        </div>
-                    `;
-                } else {
-                    // Equipment rows header
-                    html += `
-                        <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200">
-                            <div class="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-500 uppercase">
-                                <div class="col-span-6">Type / Model</div>
-                                <div class="col-span-2 text-center">Qty</div>
-                                <div class="col-span-4 text-center">Status</div>
-                            </div>
-                        </div>
-                    `;
-
-                    // Equipment rows for this contractor
-                    group.equipment.forEach((equip, index) => {
-                        const entry = getEquipmentEntry(equip.id) || { hoursUtilized: null, quantity: equip.quantity || 1 };
-                        const typeModel = equip.model ? `${equip.type} / ${equip.model}` : (equip.type || 'N/A');
-                        const isActive = entry.hoursUtilized !== null && entry.hoursUtilized > 0;
-                        const quantity = entry.quantity || equip.quantity || 1;
-                        const isLast = index === group.equipment.length - 1;
-
-                        html += `
-                            <div class="bg-white px-3 py-2 ${!isLast ? 'border-b border-slate-100' : ''}" data-equip-id="${equip.id}">
-                                <div class="grid grid-cols-12 gap-2 items-center">
-                                    <!-- Type / Model (more space now) -->
-                                    <div class="col-span-6 min-w-0">
-                                        <p class="text-sm text-slate-700 leading-tight" title="${escapeHtml(typeModel)}">${escapeHtml(typeModel)}</p>
-                                    </div>
-                                    <!-- Quantity input -->
-                                    <div class="col-span-2">
-                                        <input type="number" min="1" max="99"
-                                            id="equip-qty-${equip.id}"
-                                            value="${quantity}"
-                                            onchange="updateEquipmentQuantity('${equip.id}')"
-                                            class="w-full h-8 text-center text-sm font-medium border border-slate-300 focus:border-dot-blue focus:outline-none bg-white">
-                                    </div>
-                                    <!-- Status Picker -->
-                                    <div class="col-span-4">
-                                        <select
-                                            id="equip-status-${equip.id}"
-                                            onchange="updateEquipmentStatus('${equip.id}')"
-                                            class="w-full h-8 text-xs border ${isActive ? 'border-safety-green bg-safety-green/10 font-medium' : 'border-slate-300 bg-white'} focus:border-dot-blue focus:outline-none px-1">
-                                            ${statusOptions.replace(`value="${entry.hoursUtilized || ''}"`, `value="${entry.hoursUtilized || ''}" selected`)}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                html += `</div>`; // Close equipment-group
-            });
-
-            container.innerHTML = html;
-            updateEquipmentTotals();
+            if (warningEl) warningEl.classList.add('hidden');
+            if (noEquipWarningEl) noEquipWarningEl.classList.add('hidden');
+            if (totalsEl) totalsEl.classList.add('hidden');
+            if (markAllBtn) markAllBtn.classList.add('hidden');
         }
 
-        function updateEquipmentQuantity(equipmentId) {
-            const entry = report.equipment.find(e => e.equipmentId === equipmentId);
-            if (!entry) return;
-
-            const input = document.getElementById(`equip-qty-${equipmentId}`);
-            if (!input) return;
-
-            const val = parseInt(input.value);
-            entry.quantity = isNaN(val) || val < 1 ? 1 : val;
-
+        /**
+         * v6: Update equipment notes from text input
+         */
+        function updateEquipmentNotes(value) {
+            report.equipmentNotes = value;
             saveReport();
-            updateEquipmentTotals();
-            updateAllPreviews();
+            updateEquipmentPreview();
         }
 
-        function updateEquipmentStatus(equipmentId) {
-            const entry = report.equipment.find(e => e.equipmentId === equipmentId);
-            if (!entry) return;
-
-            const select = document.getElementById(`equip-status-${equipmentId}`);
-            if (!select) return;
-
-            const val = select.value;
-            entry.hoursUtilized = val === '' ? null : parseInt(val);
-
-            // Update visual style
-            const isActive = entry.hoursUtilized !== null && entry.hoursUtilized > 0;
-            select.className = `w-full h-8 text-xs border ${isActive ? 'border-safety-green bg-safety-green/10 font-medium' : 'border-slate-300 bg-white'} focus:border-dot-blue focus:outline-none px-1`;
-
-            saveReport();
-            updateEquipmentTotals();
-            updateAllPreviews();
+        /**
+         * v6: Update equipment preview text
+         */
+        function updateEquipmentPreview() {
+            const preview = document.getElementById('equipment-preview');
+            if (!preview) return;
+            const notes = report.equipmentNotes || '';
+            preview.textContent = notes.trim() ? 'Equipment logged' : 'Tap to add';
         }
 
-        function markAllEquipmentIdle() {
-            if (!report || !report.equipment) return;
-
-            report.equipment.forEach(entry => {
-                entry.hoursUtilized = null;
-            });
-
-            saveReport();
-            renderEquipmentCards();
-            updateAllPreviews();
-            showToast('All equipment marked IDLE');
-        }
-
-        function updateEquipmentTotals() {
-            if (!report || !report.equipment) return;
-
-            const total = report.equipment.length;
-            const active = report.equipment.filter(e => e.hoursUtilized !== null && e.hoursUtilized > 0).length;
-            const idle = total - active;
-
-            document.getElementById('equipment-total-count').textContent = total;
-            document.getElementById('equipment-active-count').textContent = active;
-            document.getElementById('equipment-idle-count').textContent = idle;
-        }
-
+        /**
+         * v6: Get equipment preview text for section card
+         */
         function getEquipmentPreview() {
-            if (!activeProject) {
-                return 'Tap to add';
-            }
-
-            const projectEquipment = getProjectEquipment();
-            if (projectEquipment.length === 0) {
-                return 'No equipment configured';
-            }
-
-            if (!report || !report.equipment) {
-                return 'Tap to add';
-            }
-
-            const total = report.equipment.length;
-            const active = report.equipment.filter(e => e.hoursUtilized !== null && e.hoursUtilized > 0).length;
-            const idle = total - active;
-
-            if (active === 0) {
-                return `${total} equipment - all IDLE`;
-            }
-
-            return `${active} active, ${idle} idle`;
+            const notes = report.equipmentNotes || '';
+            return notes.trim() ? 'Equipment logged' : 'Tap to add';
         }
 
+        /**
+         * v6: Check if equipment data exists
+         */
         function hasEquipmentData() {
-            if (!activeProject) return false;
-            const projectEquipment = getProjectEquipment();
-            if (projectEquipment.length === 0) return false;
-
-            // Consider complete if we have equipment initialized (even if all IDLE)
-            return report && report.equipment && report.equipment.length > 0;
+            const notes = report.equipmentNotes || '';
+            return notes.trim().length > 0;
         }
 
         // ============ STORAGE (SUPABASE) ============
@@ -2203,6 +1983,7 @@
         /**
          * Save report to localStorage (debounced to prevent excessive writes)
          * Data only goes to Supabase when FINISH is clicked
+         * v6: Also queues entry backup via sync-manager.js
          */
         let localSaveTimeout = null;
 
@@ -2217,6 +1998,20 @@
             }
             localSaveTimeout = setTimeout(() => {
                 saveToLocalStorage();
+
+                // v6: Queue for real-time backup if online
+                if (currentReportId && navigator.onLine) {
+                    // Build entry data from current report state
+                    const entryData = {
+                        id: generateId(),
+                        section: report.meta?.captureMode || 'guided',
+                        content: report.meta?.captureMode === 'minimal'
+                            ? report.fieldNotes?.freeformNotes
+                            : report.guidedNotes?.workSummary,
+                        timestamp: new Date().toISOString()
+                    };
+                    queueEntryBackup(currentReportId, entryData);
+                }
             }, 500); // 500ms debounce for localStorage
         }
 
@@ -3230,6 +3025,9 @@
                 // Load user settings from Supabase
                 updateLoadingStatus('Loading user settings...');
                 await loadUserSettings();
+
+                // v6: Initialize sync manager for real-time backup
+                initSyncManager();
 
                 // Load active project and contractors from Supabase
                 updateLoadingStatus('Loading project data...');
