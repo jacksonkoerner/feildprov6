@@ -2509,7 +2509,7 @@
                     });
                 });
                 const { latitude, longitude } = position.coords;
-                localStorage.setItem('fvp_loc_granted', 'true');
+                localStorage.setItem(STORAGE_KEYS.LOC_GRANTED, 'true');
                 const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&temperature_unit=fahrenheit&precipitation_unit=inch`);
                 const data = await response.json();
                 const weatherCodes = { 0: 'Clear', 1: 'Mostly Clear', 2: 'Partly Cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Fog', 51: 'Light Drizzle', 53: 'Drizzle', 55: 'Heavy Drizzle', 61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain', 80: 'Showers', 95: 'Thunderstorm' };
@@ -2565,13 +2565,13 @@
 
         // ============ DICTATION HINT BANNER ============
         function dismissDictationHint() {
-            localStorage.setItem('fvp_dictation_hint_dismissed', 'true');
+            localStorage.setItem(STORAGE_KEYS.DICTATION_HINT_DISMISSED, 'true');
             const banner = document.getElementById('dictationHintBanner');
             if (banner) banner.classList.add('hidden');
         }
 
         function checkDictationHintBanner() {
-            const dismissed = localStorage.getItem('fvp_dictation_hint_dismissed') === 'true';
+            const dismissed = localStorage.getItem(STORAGE_KEYS.DICTATION_HINT_DISMISSED) === 'true';
             const banner = document.getElementById('dictationHintBanner');
             if (banner && dismissed) {
                 banner.classList.add('hidden');
@@ -3423,8 +3423,8 @@
         function dismissWarningBanner() { document.getElementById('permissionsWarningBanner').classList.add('hidden'); }
 
         function checkAndShowWarningBanner() {
-            const micGranted = localStorage.getItem('fvp_mic_granted') === 'true';
-            const locGranted = localStorage.getItem('fvp_loc_granted') === 'true';
+            const micGranted = localStorage.getItem(STORAGE_KEYS.MIC_GRANTED) === 'true';
+            const locGranted = localStorage.getItem(STORAGE_KEYS.LOC_GRANTED) === 'true';
             if (isMobile && (!micGranted || !locGranted)) {
                 document.getElementById('permissionsWarningBanner').classList.remove('hidden');
             }
@@ -3440,7 +3440,7 @@
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 stream.getTracks().forEach(track => track.stop());
-                localStorage.setItem('fvp_mic_granted', 'true');
+                localStorage.setItem(STORAGE_KEYS.MIC_GRANTED, 'true');
                 updatePermissionUI('mic', 'granted');
                 showToast('Microphone enabled!', 'success');
             } catch (err) {
@@ -3458,7 +3458,7 @@
                 await new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
                 });
-                localStorage.setItem('fvp_loc_granted', 'true');
+                localStorage.setItem(STORAGE_KEYS.LOC_GRANTED, 'true');
                 updatePermissionUI('loc', 'granted');
                 showToast('Location enabled!');
                 fetchWeather();
@@ -3491,7 +3491,7 @@
 
         function closePermissionsModal() {
             document.getElementById('permissionsModal').classList.add('hidden');
-            localStorage.setItem('permissions_dismissed', 'true');
+            localStorage.setItem(STORAGE_KEYS.PERMISSIONS_DISMISSED, 'true');
         }
 
         async function finishReport() {

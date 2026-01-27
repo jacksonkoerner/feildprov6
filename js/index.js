@@ -5,7 +5,7 @@
 // - storage-keys.js: STORAGE_KEYS, getStorageItem, setStorageItem, getSyncQueue
 // - report-rules.js: getTodayDateString, canStartNewReport, getReportsByUrgency
 // - ui-utils.js: escapeHtml, formatDate
-// - config.js: supabaseClient, ACTIVE_PROJECT_KEY
+// - config.js: supabaseClient
 // - supabase-utils.js: fromSupabaseProject
 // ============================================================================
 
@@ -379,8 +379,7 @@ async function syncWeather() {
             );
         });
 
-        // Keep raw localStorage for permission flags (they're not in STORAGE_KEYS)
-        localStorage.setItem('fvp_loc_granted', 'true');
+        localStorage.setItem(STORAGE_KEYS.LOC_GRANTED, 'true');
 
         const { latitude, longitude } = position.coords;
         const response = await fetch(
@@ -424,7 +423,7 @@ async function syncWeather() {
     } catch (error) {
         console.error('Weather sync failed:', error);
         if (error.code === 1) {
-            localStorage.removeItem('fvp_loc_granted');
+            localStorage.removeItem(STORAGE_KEYS.LOC_GRANTED);
             document.getElementById('weatherCondition').textContent = 'Location blocked';
             document.getElementById('weatherIcon').className = 'fas fa-location-crosshairs text-2xl text-red-500 mb-1';
         } else if (error.code === 2) {
@@ -488,19 +487,19 @@ const isIOSSafari = isIOS && isSafari;
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 function checkPermissionState() {
-    const micGranted = localStorage.getItem('fvp_mic_granted') === 'true';
-    const locGranted = localStorage.getItem('fvp_loc_granted') === 'true';
-    const onboarded = localStorage.getItem('fvp_onboarded') === 'true';
-    const bannerDismissed = localStorage.getItem('fvp_banner_dismissed') === 'true';
-    const bannerDismissedDate = localStorage.getItem('fvp_banner_dismissed_date');
+    const micGranted = localStorage.getItem(STORAGE_KEYS.MIC_GRANTED) === 'true';
+    const locGranted = localStorage.getItem(STORAGE_KEYS.LOC_GRANTED) === 'true';
+    const onboarded = localStorage.getItem(STORAGE_KEYS.ONBOARDED) === 'true';
+    const bannerDismissed = localStorage.getItem(STORAGE_KEYS.BANNER_DISMISSED) === 'true';
+    const bannerDismissedDate = localStorage.getItem(STORAGE_KEYS.BANNER_DISMISSED_DATE);
 
     if (bannerDismissedDate) {
         const dismissedTime = new Date(bannerDismissedDate).getTime();
         const now = new Date().getTime();
         const hoursSinceDismissal = (now - dismissedTime) / (1000 * 60 * 60);
         if (hoursSinceDismissal > 24) {
-            localStorage.removeItem('fvp_banner_dismissed');
-            localStorage.removeItem('fvp_banner_dismissed_date');
+            localStorage.removeItem(STORAGE_KEYS.BANNER_DISMISSED);
+            localStorage.removeItem(STORAGE_KEYS.BANNER_DISMISSED_DATE);
         }
     }
 
@@ -508,7 +507,7 @@ function checkPermissionState() {
         micGranted,
         locGranted,
         onboarded,
-        bannerDismissed: localStorage.getItem('fvp_banner_dismissed') === 'true',
+        bannerDismissed: localStorage.getItem(STORAGE_KEYS.BANNER_DISMISSED) === 'true',
         allGranted: micGranted && locGranted
     };
 }
@@ -537,8 +536,8 @@ function showPermissionsBanner() {
 function dismissPermissionsBanner() {
     const banner = document.getElementById('permissionsBanner');
     banner.classList.add('hidden');
-    localStorage.setItem('fvp_banner_dismissed', 'true');
-    localStorage.setItem('fvp_banner_dismissed_date', new Date().toISOString());
+    localStorage.setItem(STORAGE_KEYS.BANNER_DISMISSED, 'true');
+    localStorage.setItem(STORAGE_KEYS.BANNER_DISMISSED_DATE, new Date().toISOString());
 }
 
 async function dismissSubmittedBanner() {

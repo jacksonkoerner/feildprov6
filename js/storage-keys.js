@@ -28,7 +28,12 @@ export const STORAGE_KEYS = {
   CAM_GRANTED: 'fvp_cam_granted',
   LOC_GRANTED: 'fvp_loc_granted',
   SPEECH_GRANTED: 'fvp_speech_granted',
-  ONBOARDED: 'fvp_onboarded'
+  ONBOARDED: 'fvp_onboarded',
+  BANNER_DISMISSED: 'fvp_banner_dismissed',
+  BANNER_DISMISSED_DATE: 'fvp_banner_dismissed_date',
+  DICTATION_HINT_DISMISSED: 'fvp_dictation_hint_dismissed',
+  QUICK_INTERVIEW_DRAFT: 'fvp_quick_interview_draft',
+  PERMISSIONS_DISMISSED: 'fvp_permissions_dismissed'
 };
 
 /**

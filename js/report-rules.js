@@ -38,34 +38,35 @@ export const CAPTURE_MODE = {
 
 /**
  * Guided mode section identifiers
+ * Matches data-section attributes in quick-interview.html
  * @constant {Object}
  */
 export const GUIDED_SECTIONS = {
   WEATHER: 'weather',
-  WORK_SUMMARY: 'work_summary',
-  CONTRACTOR_PERSONNEL: 'contractor_personnel',
+  ACTIVITIES: 'activities',
+  PERSONNEL: 'personnel',
   EQUIPMENT: 'equipment',
   ISSUES: 'issues',
   COMMUNICATIONS: 'communications',
   QAQC: 'qaqc',
   SAFETY: 'safety',
-  VISITORS_DELIVERIES: 'visitors_deliveries',
+  VISITORS: 'visitors',
   PHOTOS: 'photos'
 };
 
 /**
  * Sections that have Yes/No toggles
- * Note: weather and work_summary do NOT have toggles
+ * Note: weather and activities do NOT have toggles
  * @constant {string[]}
  */
 export const TOGGLE_SECTIONS = [
-  'contractor_personnel',
+  'personnel',
   'equipment',
   'issues',
   'communications',
   'qaqc',
   'safety',
-  'visitors_deliveries',
+  'visitors',
   'photos'
 ];
 

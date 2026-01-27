@@ -6,6 +6,3 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // Initialize Supabase client (requires @supabase/supabase-js to be loaded first)
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// App constants
-const ACTIVE_PROJECT_KEY = 'fvp_active_project';

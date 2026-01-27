@@ -189,7 +189,7 @@ function continueEditing(index) {
         ...draft.data
     };
 
-    localStorage.setItem('fvp_quick_interview_draft', JSON.stringify(quickInterviewData));
+    localStorage.setItem(STORAGE_KEYS.QUICK_INTERVIEW_DRAFT, JSON.stringify(quickInterviewData));
 
     // Navigate to quick-interview
     window.location.href = 'quick-interview.html';
