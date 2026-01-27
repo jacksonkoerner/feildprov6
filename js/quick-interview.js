@@ -1894,6 +1894,21 @@
             );
         }
 
+        /**
+         * Get total personnel count across all contractors
+         * @returns {number} Total personnel count
+         */
+        function getTotalPersonnelCount() {
+            if (!report || !report.operations) return 0;
+            let total = 0;
+            report.operations.forEach(ops => {
+                total += (ops.superintendents || 0) + (ops.foremen || 0) +
+                         (ops.operators || 0) + (ops.laborers || 0) +
+                         (ops.surveyors || 0) + (ops.others || 0);
+            });
+            return total;
+        }
+
         // ============ EQUIPMENT ============
         // v6: Equipment is now entered as text per-report, not loaded from project config
         // Old functions removed: getProjectEquipment, getEquipmentEntry, initializeEquipment,
@@ -2623,8 +2638,42 @@
             }
         }
 
-        // Note: addVisitor() and removeVisitor() are replaced by text area inputs
-        // contractorCommunications and visitorsRemarks are now strings, not arrays
+        // v6: Entry-based add functions for new sections
+        function addCommunication() {
+            const input = document.getElementById('communications-input');
+            const text = input.value.trim();
+            if (text) {
+                createEntry('communications', text);
+                renderSection('communications');
+                input.value = '';
+                updateAllPreviews();
+                updateProgress();
+            }
+        }
+
+        function addQAQC() {
+            const input = document.getElementById('qaqc-input');
+            const text = input.value.trim();
+            if (text) {
+                createEntry('qaqc', text);
+                renderSection('qaqc');
+                input.value = '';
+                updateAllPreviews();
+                updateProgress();
+            }
+        }
+
+        function addVisitor() {
+            const input = document.getElementById('visitors-input');
+            const text = input.value.trim();
+            if (text) {
+                createEntry('visitors', text);
+                renderSection('visitors');
+                input.value = '';
+                updateAllPreviews();
+                updateProgress();
+            }
+        }
 
         // ============ PHOTOS ============
         async function handlePhotoInput(e) {
@@ -2901,11 +2950,168 @@
                         document.getElementById('no-incidents').checked = report.safety.noIncidents;
                     }
                     break;
+                case 'personnel':
+                    // Render toggle for contractors on site
+                    const personnelToggle = renderToggleButtons('personnel_onsite', 'Any contractors on site today?');
+                    const toggleContainer = document.getElementById('personnel-toggle-container');
+                    if (toggleContainer) {
+                        toggleContainer.innerHTML = personnelToggle;
+                    }
+
+                    // Show/hide personnel cards based on toggle state
+                    const personnelToggleState = getToggleState('personnel_onsite');
+                    if (personnelToggleState === true) {
+                        renderPersonnelCards();
+                    } else if (personnelToggleState === false) {
+                        document.getElementById('personnel-list').innerHTML = `
+                            <div class="bg-slate-100 border border-slate-200 p-3 text-center text-sm text-slate-500">
+                                <i class="fas fa-ban mr-2"></i>Marked as N/A - No contractors on site
+                            </div>
+                        `;
+                        document.getElementById('no-project-warning-ops').classList.add('hidden');
+                        document.getElementById('personnel-totals').classList.add('hidden');
+                    } else {
+                        // Toggle not set - show cards for input
+                        renderPersonnelCards();
+                    }
+                    break;
+                case 'equipment':
+                    renderEquipmentCards();
+                    break;
                 case 'communications':
-                    // Communications text area - value set via event listener
+                    // Render toggle
+                    const commsToggle = renderToggleButtons('communications_made', 'Any communications with contractor today?');
+                    const commsToggleContainer = document.getElementById('communications-toggle-container');
+                    if (commsToggleContainer) {
+                        commsToggleContainer.innerHTML = commsToggle;
+                    }
+
+                    // Show/hide input based on toggle state
+                    const commsToggleState = getToggleState('communications_made');
+                    const commsInputContainer = document.getElementById('communications-input-container');
+                    const commsList = document.getElementById('communications-list');
+
+                    if (commsToggleState === true) {
+                        if (commsInputContainer) commsInputContainer.classList.remove('hidden');
+                        // Render existing entries
+                        const commsEntries = getEntriesForSection('communications');
+                        if (commsList) {
+                            commsList.innerHTML = commsEntries.map(entry => `
+                                <div class="bg-violet-50 border border-violet-200 p-3 flex items-start gap-3" data-entry-id="${entry.id}">
+                                    <i class="fas fa-comment text-violet-500 mt-0.5"></i>
+                                    <div class="flex-1">
+                                        <p class="text-sm text-slate-700">${escapeHtml(entry.content)}</p>
+                                        <p class="text-[10px] text-slate-400 mt-1">${new Date(entry.timestamp).toLocaleTimeString()}</p>
+                                    </div>
+                                    <button onclick="deleteEntryById('${entry.id}'); renderSection('communications'); updateAllPreviews(); updateProgress();" class="text-red-400 hover:text-red-600">
+                                        <i class="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            `).join('');
+                        }
+                    } else if (commsToggleState === false) {
+                        if (commsInputContainer) commsInputContainer.classList.add('hidden');
+                        if (commsList) {
+                            commsList.innerHTML = `
+                                <div class="bg-slate-100 border border-slate-200 p-3 text-center text-sm text-slate-500">
+                                    <i class="fas fa-ban mr-2"></i>Marked as N/A - No communications
+                                </div>
+                            `;
+                        }
+                    } else {
+                        if (commsInputContainer) commsInputContainer.classList.add('hidden');
+                        if (commsList) commsList.innerHTML = '';
+                    }
+                    break;
+                case 'qaqc':
+                    // Render toggle
+                    const qaqcToggle = renderToggleButtons('qaqc_performed', 'Any QA/QC testing or inspections today?');
+                    const qaqcToggleContainer = document.getElementById('qaqc-toggle-container');
+                    if (qaqcToggleContainer) {
+                        qaqcToggleContainer.innerHTML = qaqcToggle;
+                    }
+
+                    // Show/hide input based on toggle state
+                    const qaqcToggleState = getToggleState('qaqc_performed');
+                    const qaqcInputContainer = document.getElementById('qaqc-input-container');
+                    const qaqcList = document.getElementById('qaqc-list');
+
+                    if (qaqcToggleState === true) {
+                        if (qaqcInputContainer) qaqcInputContainer.classList.remove('hidden');
+                        // Render existing entries
+                        const qaqcEntries = getEntriesForSection('qaqc');
+                        if (qaqcList) {
+                            qaqcList.innerHTML = qaqcEntries.map(entry => `
+                                <div class="bg-indigo-50 border border-indigo-200 p-3 flex items-start gap-3" data-entry-id="${entry.id}">
+                                    <i class="fas fa-clipboard-check text-indigo-500 mt-0.5"></i>
+                                    <div class="flex-1">
+                                        <p class="text-sm text-slate-700">${escapeHtml(entry.content)}</p>
+                                        <p class="text-[10px] text-slate-400 mt-1">${new Date(entry.timestamp).toLocaleTimeString()}</p>
+                                    </div>
+                                    <button onclick="deleteEntryById('${entry.id}'); renderSection('qaqc'); updateAllPreviews(); updateProgress();" class="text-red-400 hover:text-red-600">
+                                        <i class="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            `).join('');
+                        }
+                    } else if (qaqcToggleState === false) {
+                        if (qaqcInputContainer) qaqcInputContainer.classList.add('hidden');
+                        if (qaqcList) {
+                            qaqcList.innerHTML = `
+                                <div class="bg-slate-100 border border-slate-200 p-3 text-center text-sm text-slate-500">
+                                    <i class="fas fa-ban mr-2"></i>Marked as N/A - No QA/QC testing
+                                </div>
+                            `;
+                        }
+                    } else {
+                        if (qaqcInputContainer) qaqcInputContainer.classList.add('hidden');
+                        if (qaqcList) qaqcList.innerHTML = '';
+                    }
                     break;
                 case 'visitors':
-                    // Visitors/remarks text area - value set via event listener
+                    // Render toggle
+                    const visitorsToggle = renderToggleButtons('visitors_present', 'Any visitors, deliveries, or other activity today?');
+                    const visitorsToggleContainer = document.getElementById('visitors-toggle-container');
+                    if (visitorsToggleContainer) {
+                        visitorsToggleContainer.innerHTML = visitorsToggle;
+                    }
+
+                    // Show/hide input based on toggle state
+                    const visitorsToggleState = getToggleState('visitors_present');
+                    const visitorsInputContainer = document.getElementById('visitors-input-container');
+                    const visitorsList = document.getElementById('visitors-list');
+
+                    if (visitorsToggleState === true) {
+                        if (visitorsInputContainer) visitorsInputContainer.classList.remove('hidden');
+                        // Render existing entries
+                        const visitorsEntries = getEntriesForSection('visitors');
+                        if (visitorsList) {
+                            visitorsList.innerHTML = visitorsEntries.map(entry => `
+                                <div class="bg-teal-50 border border-teal-200 p-3 flex items-start gap-3" data-entry-id="${entry.id}">
+                                    <i class="fas fa-truck-loading text-teal-500 mt-0.5"></i>
+                                    <div class="flex-1">
+                                        <p class="text-sm text-slate-700">${escapeHtml(entry.content)}</p>
+                                        <p class="text-[10px] text-slate-400 mt-1">${new Date(entry.timestamp).toLocaleTimeString()}</p>
+                                    </div>
+                                    <button onclick="deleteEntryById('${entry.id}'); renderSection('visitors'); updateAllPreviews(); updateProgress();" class="text-red-400 hover:text-red-600">
+                                        <i class="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            `).join('');
+                        }
+                    } else if (visitorsToggleState === false) {
+                        if (visitorsInputContainer) visitorsInputContainer.classList.add('hidden');
+                        if (visitorsList) {
+                            visitorsList.innerHTML = `
+                                <div class="bg-slate-100 border border-slate-200 p-3 text-center text-sm text-slate-500">
+                                    <i class="fas fa-ban mr-2"></i>Marked as N/A - No visitors or deliveries
+                                </div>
+                            `;
+                        }
+                    } else {
+                        if (visitorsInputContainer) visitorsInputContainer.classList.add('hidden');
+                        if (visitorsList) visitorsList.innerHTML = '';
+                    }
                     break;
                 case 'photos':
                     document.getElementById('photos-grid').innerHTML = report.photos.map((p, i) => `
@@ -2950,14 +3156,15 @@
         }
 
         function renderAllSections() {
-            // Simplified guided mode sections + contractor work + equipment
-            ['contractor-work', 'equipment', 'issues', 'safety', 'photos'].forEach(renderSection);
+            // v6: All guided mode sections
+            ['personnel', 'equipment', 'issues', 'communications', 'qaqc', 'safety', 'visitors', 'photos'].forEach(renderSection);
             updateWeatherDisplay();
+            updateEquipmentPreview();
         }
 
         // ============ PREVIEWS & PROGRESS ============
         function updateAllPreviews() {
-            // Simplified guided mode - only 5 sections: Weather, Work Summary, Issues, Safety, Photos
+            // v6: All guided mode sections
             const w = report.overview.weather;
             document.getElementById('weather-preview').textContent = w.jobSiteCondition || `${w.generalCondition}, ${w.highTemp}`;
 
@@ -2972,6 +3179,23 @@
 
             const naMarked = report.meta.naMarked || {};
 
+            // v6: Personnel preview - check toggle and data
+            const personnelToggleVal = getToggleState('personnel_onsite');
+            const personnelPreviewEl = document.getElementById('personnel-preview');
+            if (personnelPreviewEl) {
+                if (personnelToggleVal === false) {
+                    personnelPreviewEl.textContent = 'N/A - No contractors';
+                } else if (personnelToggleVal === true) {
+                    const totalPersonnel = getTotalPersonnelCount();
+                    personnelPreviewEl.textContent = totalPersonnel > 0 ? `${totalPersonnel} personnel` : 'Tap to add counts';
+                } else {
+                    personnelPreviewEl.textContent = 'Tap to add';
+                }
+            }
+
+            // v6: Equipment preview
+            updateEquipmentPreview();
+
             // v6: Issues preview - count both entry-based and legacy issues
             const issueEntries = getEntriesForSection('issues');
             const legacyIssueCount = (report.generalIssues || []).length;
@@ -2980,6 +3204,34 @@
                 naMarked.issues ? 'N/A - No issues' :
                 totalIssues > 0 ? `${totalIssues} issue${totalIssues > 1 ? 's' : ''}` :
                 'None reported';
+
+            // v6: Communications preview
+            const commsToggleVal = getToggleState('communications_made');
+            const commsPreviewEl = document.getElementById('communications-preview');
+            if (commsPreviewEl) {
+                if (commsToggleVal === false) {
+                    commsPreviewEl.textContent = 'N/A - None';
+                } else if (commsToggleVal === true) {
+                    const commsCount = getEntriesForSection('communications').length;
+                    commsPreviewEl.textContent = commsCount > 0 ? `${commsCount} logged` : 'Tap to add';
+                } else {
+                    commsPreviewEl.textContent = 'None recorded';
+                }
+            }
+
+            // v6: QA/QC preview
+            const qaqcToggleVal = getToggleState('qaqc_performed');
+            const qaqcPreviewEl = document.getElementById('qaqc-preview');
+            if (qaqcPreviewEl) {
+                if (qaqcToggleVal === false) {
+                    qaqcPreviewEl.textContent = 'N/A - None';
+                } else if (qaqcToggleVal === true) {
+                    const qaqcCount = getEntriesForSection('qaqc').length;
+                    qaqcPreviewEl.textContent = qaqcCount > 0 ? `${qaqcCount} logged` : 'Tap to add';
+                } else {
+                    qaqcPreviewEl.textContent = 'None recorded';
+                }
+            }
 
             // v6: Safety preview - check toggle state first, then entries
             const safetyToggleVal = getToggleState('safety_incidents');
@@ -2993,6 +3245,20 @@
                 (safetyEntryCount + legacySafetyCount) > 0 ? 'Notes added' :
                 'Tap to confirm';
 
+            // v6: Visitors preview
+            const visitorsToggleVal = getToggleState('visitors_present');
+            const visitorsPreviewEl = document.getElementById('visitors-preview');
+            if (visitorsPreviewEl) {
+                if (visitorsToggleVal === false) {
+                    visitorsPreviewEl.textContent = 'N/A - None';
+                } else if (visitorsToggleVal === true) {
+                    const visitorsCount = getEntriesForSection('visitors').length;
+                    visitorsPreviewEl.textContent = visitorsCount > 0 ? `${visitorsCount} logged` : 'Tap to add';
+                } else {
+                    visitorsPreviewEl.textContent = 'None recorded';
+                }
+            }
+
             document.getElementById('photos-preview').textContent = naMarked.photos ? 'N/A - No photos' : report.photos.length > 0 ? `${report.photos.length} photos` : 'No photos';
 
             updateStatusIcons();
@@ -3002,16 +3268,27 @@
             const naMarked = report.meta.naMarked || {};
             // Check if any contractor has work logged
             const hasContractorWork = report.activities?.some(a => !a.noWork || a.narrative) || false;
-            // Check if equipment has any active items
-            const hasEquipmentData = report.equipment?.some(e => e.hoursUtilized !== null && e.hoursUtilized > 0) || false;
+            // Check if equipment has any active items (v6: check equipmentNotes)
+            const hasEquipmentData = (report.equipmentNotes && report.equipmentNotes.trim()) ||
+                                     report.equipment?.some(e => e.hoursUtilized !== null && e.hoursUtilized > 0) || false;
+            // v6: Check toggle states and entries for new sections
+            const personnelToggle = getToggleState('personnel_onsite');
+            const commsToggle = getToggleState('communications_made');
+            const qaqcToggle = getToggleState('qaqc_performed');
+            const visitorsToggle = getToggleState('visitors_present');
+            const safetyToggle = getToggleState('safety_incidents');
+
             // Sections with status icons
             const sections = {
                 'weather': report.overview.weather.jobSiteCondition,
                 'activities': report.guidedNotes?.workSummary?.trim(),
-                'contractor-work': hasContractorWork,
+                'personnel': personnelToggle !== null || hasOperationsData(),
                 'equipment': hasEquipmentData,
-                'issues': report.generalIssues.length > 0 || naMarked.issues,
-                'safety': report.safety.noIncidents || report.safety.hasIncidents || report.safety.notes.length > 0,
+                'issues': getEntriesForSection('issues').length > 0 || report.generalIssues.length > 0 || naMarked.issues,
+                'communications': commsToggle !== null || getEntriesForSection('communications').length > 0,
+                'qaqc': qaqcToggle !== null || getEntriesForSection('qaqc').length > 0,
+                'safety': safetyToggle !== null || report.safety.noIncidents || report.safety.hasIncidents || report.safety.notes.length > 0 || getEntriesForSection('safety').length > 0,
+                'visitors': visitorsToggle !== null || getEntriesForSection('visitors').length > 0,
                 'photos': report.photos.length > 0 || naMarked.photos
             };
             Object.entries(sections).forEach(([section, hasData]) => {
@@ -3032,7 +3309,7 @@
         function updateProgress() {
             const naMarked = report.meta.naMarked || {};
             let filled = 0;
-            let total = 5; // weather, work summary, issues, safety, photos (simplified guided mode)
+            let total = 10; // v6: All guided mode sections
 
             // Weather - has site condition text
             if (report.overview.weather.jobSiteCondition) filled++;
@@ -3040,10 +3317,25 @@
             // Work Summary - has work summary text (simplified single textarea)
             if (report.guidedNotes?.workSummary?.trim()) filled++;
 
+            // v6: Personnel - toggle answered OR has data
+            const personnelToggleVal = getToggleState('personnel_onsite');
+            if (personnelToggleVal !== null || hasOperationsData()) filled++;
+
+            // v6: Equipment - has equipment notes
+            if (report.equipmentNotes?.trim()) filled++;
+
             // v6: Issues - has entries OR legacy issues OR marked N/A
             const issueEntryCount = getEntriesForSection('issues').length;
             const legacyIssueCount = (report.generalIssues || []).length;
             if (issueEntryCount > 0 || legacyIssueCount > 0 || naMarked.issues) filled++;
+
+            // v6: Communications - toggle answered OR has entries
+            const commsToggleVal = getToggleState('communications_made');
+            if (commsToggleVal !== null || getEntriesForSection('communications').length > 0) filled++;
+
+            // v6: QA/QC - toggle answered OR has entries
+            const qaqcToggleVal = getToggleState('qaqc_performed');
+            if (qaqcToggleVal !== null || getEntriesForSection('qaqc').length > 0) filled++;
 
             // v6: Safety - toggle answered OR has entries OR legacy notes
             const safetyToggleVal = getToggleState('safety_incidents');
@@ -3054,6 +3346,10 @@
                 report.safety.hasIncidents === true ||
                 safetyEntryCount > 0 ||
                 legacySafetyCount > 0) filled++;
+
+            // v6: Visitors - toggle answered OR has entries
+            const visitorsToggleVal = getToggleState('visitors_present');
+            if (visitorsToggleVal !== null || getEntriesForSection('visitors').length > 0) filled++;
 
             // Photos - has photos OR marked N/A
             if (report.photos.length > 0 || naMarked.photos) filled++;

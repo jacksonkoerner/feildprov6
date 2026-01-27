@@ -446,6 +446,63 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                 </div>
             </div>
 
+            <!-- Contractor Personnel Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="personnel">
+                <button onclick="toggleSection('personnel')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-dot-blue flex items-center justify-center">
+                        <i class="fas fa-users text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">Contractor Personnel</p>
+                        <p id="personnel-preview" class="text-sm text-slate-500 truncate">Tap to add</p>
+                    </div>
+                    <div id="personnel-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <!-- Toggle: Any contractors on site? -->
+                        <div id="personnel-toggle-container"></div>
+                        <!-- No project warning -->
+                        <div id="no-project-warning-ops" class="hidden bg-yellow-50 border border-yellow-200 p-3 text-sm text-yellow-700">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>No project configured. Go to Project Config to add contractors.
+                        </div>
+                        <!-- Personnel totals summary -->
+                        <div id="personnel-totals" class="hidden bg-slate-50 border border-slate-200 p-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-500 uppercase">Total Personnel</span>
+                                <span id="personnel-total-count" class="text-lg font-bold text-dot-blue">0</span>
+                            </div>
+                        </div>
+                        <!-- Personnel cards container -->
+                        <div id="personnel-list" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Equipment Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="equipment">
+                <button onclick="toggleSection('equipment')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-dot-orange flex items-center justify-center">
+                        <i class="fas fa-truck text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">Equipment Used</p>
+                        <p id="equipment-preview" class="text-sm text-slate-500 truncate">Tap to add</p>
+                    </div>
+                    <div id="equipment-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <!-- Equipment list container - populated by renderEquipmentCards() -->
+                        <div id="equipment-list"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Issues Section -->
             <div class="section-card bg-white border-2 border-slate-200" data-section="issues">
                 <button onclick="toggleSection('issues')" class="w-full p-4 flex items-center gap-4">
@@ -469,6 +526,68 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                         <div class="flex items-center gap-2">
                             <textarea id="issue-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Describe any issues or delays..."></textarea>
                             <button onclick="addIssue()" class="px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Communications Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="communications">
+                <button onclick="toggleSection('communications')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-violet-600 flex items-center justify-center">
+                        <i class="fas fa-comments text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">Communications</p>
+                        <p id="communications-preview" class="text-sm text-slate-500 truncate">None recorded</p>
+                    </div>
+                    <div id="communications-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <!-- Toggle: Any communications with contractor? -->
+                        <div id="communications-toggle-container"></div>
+                        <!-- Communications list -->
+                        <div id="communications-list" class="space-y-2"></div>
+                        <!-- Add communication input (shown when toggle = Yes) -->
+                        <div id="communications-input-container" class="hidden">
+                            <div class="flex items-center gap-2">
+                                <textarea id="communications-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-violet-500 auto-expand" rows="3" placeholder="Describe communication with contractor..."></textarea>
+                                <button onclick="addCommunication()" class="px-4 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- QA/QC Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="qaqc">
+                <button onclick="toggleSection('qaqc')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-indigo-600 flex items-center justify-center">
+                        <i class="fas fa-clipboard-check text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">QA/QC Testing</p>
+                        <p id="qaqc-preview" class="text-sm text-slate-500 truncate">None recorded</p>
+                    </div>
+                    <div id="qaqc-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <!-- Toggle: Any QA/QC testing today? -->
+                        <div id="qaqc-toggle-container"></div>
+                        <!-- QA/QC entries list -->
+                        <div id="qaqc-list" class="space-y-2"></div>
+                        <!-- Add QA/QC input (shown when toggle = Yes) -->
+                        <div id="qaqc-input-container" class="hidden">
+                            <div class="flex items-center gap-2">
+                                <textarea id="qaqc-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 auto-expand" rows="3" placeholder="Describe testing or inspection..."></textarea>
+                                <button onclick="addQAQC()" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -504,6 +623,37 @@ Example: 'ABC Concrete had 5 workers pouring the foundation today. Weather was g
                         <div class="flex items-center gap-2">
                             <textarea id="safety-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-dot-blue auto-expand" rows="3" placeholder="Safety notes, toolbox talks..."></textarea>
                             <button onclick="addSafetyNote()" class="px-4 py-3 bg-safety-green hover:bg-green-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visitors/Deliveries Section -->
+            <div class="section-card bg-white border-2 border-slate-200" data-section="visitors">
+                <button onclick="toggleSection('visitors')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-teal-600 flex items-center justify-center">
+                        <i class="fas fa-truck-loading text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-slate-800 uppercase text-sm">Visitors / Deliveries</p>
+                        <p id="visitors-preview" class="text-sm text-slate-500 truncate">None recorded</p>
+                    </div>
+                    <div id="visitors-status" class="w-8 h-8 border border-slate-300 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
+                        <!-- Toggle: Any visitors/deliveries? -->
+                        <div id="visitors-toggle-container"></div>
+                        <!-- Visitors/Deliveries entries list -->
+                        <div id="visitors-list" class="space-y-2"></div>
+                        <!-- Add visitor/delivery input (shown when toggle = Yes) -->
+                        <div id="visitors-input-container" class="hidden">
+                            <div class="flex items-center gap-2">
+                                <textarea id="visitors-input" class="flex-1 bg-white border-2 border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-500 auto-expand" rows="3" placeholder="Describe visitors, deliveries, or other activity..."></textarea>
+                                <button onclick="addVisitor()" class="px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>
