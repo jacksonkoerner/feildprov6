@@ -103,12 +103,16 @@ This section contains technical reference information for AI assistants and deve
 ├── assets/                 # Favicon and browser icons
 ├── icons/                  # PWA app icons (various sizes)
 ├── js/                     # Shared JavaScript modules
-│   ├── sw.js               # Service worker for PWA
 │   ├── config.js           # Supabase credentials and constants
-│   ├── supabase-utils.js   # Database conversion utilities
+│   ├── storage-keys.js     # NEW - v6 localStorage structure and helpers
+│   ├── report-rules.js     # NEW - v6 business rules enforcement
+│   ├── supabase-utils.js   # UPDATED - v6 schema converters
 │   ├── pwa-utils.js        # PWA registration, offline banner
 │   ├── ui-utils.js         # UI helper functions
-│   └── media-utils.js      # Photo capture, compression, GPS
+│   ├── media-utils.js      # Photo capture, compression, GPS
+│   ├── project-config.js   # NEW - extracted from project-config.html
+│   ├── sw.js               # Service worker for PWA
+│   └── README.md           # Module documentation
 ├── docs/                   # Technical documentation
 │   ├── application-workflows.md      # Detailed workflow diagrams
 │   ├── current-data-flow.md          # Data flow mapping
@@ -130,12 +134,15 @@ All shared code lives in `/js/`. Import these files instead of duplicating funct
 
 | File | Lines | Exports | Purpose |
 |------|-------|---------|---------|
-| `config.js` | 11 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `supabaseClient`, `ACTIVE_PROJECT_KEY` | Supabase credentials and app constants |
-| `supabase-utils.js` | 217 | `fromSupabaseProject`, `toSupabaseProject`, `fromSupabaseContractor`, `toSupabaseContractor`, `fromSupabaseEquipment`, `toSupabaseEquipment`, `toSupabaseReport`, `toSupabaseRawCapture`, `toSupabaseContractorWork`, `toSupabasePersonnel`, `toSupabaseEquipmentUsage`, `toSupabasePhoto` | Converts between Supabase row format and JS objects |
-| `pwa-utils.js` | 132 | `initPWA`, `setupPWANavigation`, `registerServiceWorker`, `setupOfflineBanner`, `injectOfflineBanner` | Service worker registration, offline detection, PWA navigation |
-| `ui-utils.js` | 188 | `escapeHtml`, `generateId`, `showToast`, `formatDate`, `formatTime`, `autoExpand`, `initAutoExpand`, `initAllAutoExpandTextareas` | XSS prevention, ID generation, notifications, date/time formatting, auto-expanding textareas |
-| `media-utils.js` | 145 | `readFileAsDataURL`, `dataURLtoBlob`, `compressImage`, `getHighAccuracyGPS` | File reading, image compression, multi-reading GPS acquisition |
-| `sw.js` | 214 | (Service Worker) | Cache-first for static assets, network-first for API calls |
+| `config.js` | ~11 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `supabaseClient`, `ACTIVE_PROJECT_KEY` | Supabase credentials and app constants |
+| `storage-keys.js` | ~180 | `STORAGE_KEYS`, `getDeviceId`, `getStorageItem`, `setStorageItem`, `removeStorageItem`, `getCurrentReport`, `saveCurrentReport`, `deleteCurrentReport`, `getActiveProject`, `addToSyncQueue`, `getSyncQueue`, `clearSyncQueue` | v6 localStorage structure and helpers |
+| `report-rules.js` | ~350 | `REPORT_STATUS`, `CAPTURE_MODE`, `GUIDED_SECTIONS`, `TOGGLE_SECTIONS`, `canStartNewReport`, `getProjectsEligibleForNewReport`, `getReportsByUrgency`, `canTransitionStatus`, `getNextValidStatus`, `isReportEditable`, `canReturnToNotes`, `canChangeToggle`, `getSectionToggleState`, `canSwitchCaptureMode`, `getTodayDateString`, `isReportFromToday`, `isReportLate`, `validateReportForAI`, `validateReportForSubmit` | v6 business rules enforcement |
+| `supabase-utils.js` | ~350 | `fromSupabaseProject`, `toSupabaseProject`, `fromSupabaseContractor`, `toSupabaseContractor`, `fromSupabaseReport`, `toSupabaseReport`, `fromSupabaseEntry`, `toSupabaseEntry`, `fromSupabaseRawCapture`, `toSupabaseRawCapture`, `fromSupabaseAIResponse`, `toSupabaseAIResponse`, `fromSupabaseFinal`, `toSupabaseFinal`, `fromSupabasePhoto`, `toSupabasePhoto` | v6 Supabase data converters |
+| `pwa-utils.js` | ~132 | `initPWA`, `setupPWANavigation`, `registerServiceWorker`, `setupOfflineBanner`, `injectOfflineBanner` | Service worker registration, offline detection |
+| `ui-utils.js` | ~188 | `escapeHtml`, `generateId`, `showToast`, `formatDate`, `formatTime`, `autoExpand`, `initAutoExpand`, `initAllAutoExpandTextareas` | XSS prevention, ID generation, notifications, formatting |
+| `media-utils.js` | ~145 | `readFileAsDataURL`, `dataURLtoBlob`, `compressImage`, `getHighAccuracyGPS` | File reading, image compression, GPS |
+| `project-config.js` | ~1007 | (page-specific) | Project and contractor management UI |
+| `sw.js` | ~214 | (Service Worker) | Cache-first static, network-first API |
 
 ### Usage Pattern
 
@@ -160,7 +167,7 @@ initPWA(); // Registers service worker and sets up offline banner
 | Table | Purpose |
 |-------|---------|
 | `user_profiles` | Inspector name, title, company, email, phone |
-| `projects` | Project details, contractor roster (jsonb), equipment inventory (jsonb) |
+| `projects` | Project details, contractor roster (jsonb) |
 | `reports` | Report metadata (project_id, date, status) |
 | `report_raw_capture` | Field notes (transcript, guided_notes, site_conditions, work_summary) |
 | `report_contractor_work` | Per-contractor work narratives, equipment used, crew |
@@ -170,6 +177,11 @@ initPWA(); // Registers service worker and sets up offline banner
 | `report_ai_response` | AI-generated content, model info, processing time |
 | `report_user_edits` | Field-level edit tracking (original vs edited values) |
 | `report_final` | Finalized report content, signature, submission timestamp |
+
+**Note on Equipment (v6):**
+- Equipment is no longer stored at the project level
+- Equipment is entered fresh during each report in quick-interview.html
+- This matches the v6 architecture where equipment usage varies daily
 
 ### Key Table Schemas
 
@@ -219,14 +231,26 @@ The page offers two capture modes (toggle at top):
 
 ## localStorage Keys
 
-Device-specific state (not synced):
+Device-specific state (v6 structure from STORAGE_KEYS):
 
 | Key | Purpose |
 |-----|---------|
-| `fvp_active_project` | Currently active project ID on this device |
-| `fvp_quick_interview_draft` | Draft data during interview session |
-| `fvp_offline_queue` | Reports pending sync when offline |
-| `fvp_ai_response_{reportId}` | Temporary AI response cache |
+| `fvp_user_profile` | User's profile info |
+| `fvp_projects` | All projects with contractors |
+| `fvp_active_project_id` | Currently selected project |
+| `fvp_current_reports` | Reports in progress (keyed by report ID) |
+| `fvp_ai_reports` | AI responses being edited |
+| `fvp_drafts` | Reports saved for later |
+| `fvp_sync_queue` | Operations waiting to sync |
+| `fvp_last_sync` | Timestamp of last sync |
+| `fvp_device_id` | Unique device identifier |
+
+**Note:** `fvp_quick_interview_draft`, `fvp_offline_queue`, `fvp_ai_response_{reportId}` and other old keys deprecated in v6
+
+Additional keys (permission/UI state):
+
+| Key | Purpose |
+|-----|---------|
 | `fvp_cached_weather` | Cached weather data with timestamp |
 | `fvp_mic_granted` | Microphone permission status |
 | `fvp_cam_granted` | Camera permission status |
@@ -247,15 +271,18 @@ Device-specific state (not synced):
 
 ### Migration Status
 
-All shared modules are complete. No inline duplicates remain.
+All shared modules are complete. v6 migration in progress.
 
 | Module | Status |
 |--------|--------|
 | config.js | ✅ Complete |
-| supabase-utils.js | ✅ Complete |
+| storage-keys.js | ✅ Complete (v6) |
+| report-rules.js | ✅ Complete (v6) |
+| supabase-utils.js | ✅ Complete (v6 schema) |
 | pwa-utils.js | ✅ Complete |
 | ui-utils.js | ✅ Complete |
 | media-utils.js | ✅ Complete |
+| project-config.js | ✅ Complete (extracted from HTML) |
 
 ## Configuration
 
@@ -384,11 +411,14 @@ npx serve .
 | settings.html | 458 |
 | landing.html | 1,494 |
 | admin-debug.html | 273 |
-| js/sw.js | 214 |
-| js/config.js | 11 |
-| js/supabase-utils.js | 217 |
-| js/pwa-utils.js | 132 |
-| js/ui-utils.js | 188 |
-| js/media-utils.js | 145 |
-| **Total HTML** | **18,117** |
-| **Total JS** | **907** |
+| js/config.js | ~11 |
+| js/storage-keys.js | ~180 |
+| js/report-rules.js | ~350 |
+| js/supabase-utils.js | ~350 |
+| js/pwa-utils.js | ~132 |
+| js/ui-utils.js | ~188 |
+| js/media-utils.js | ~145 |
+| js/project-config.js | ~1007 |
+| js/sw.js | ~214 |
+| **Total HTML** | **~18,117** |
+| **Total JS** | **~2,577** |
