@@ -20,7 +20,7 @@
  * Flow: draft → pending_refine → refined → submitted
  * @constant {Object}
  */
-export const REPORT_STATUS = {
+const REPORT_STATUS = {
   DRAFT: 'draft',
   PENDING_REFINE: 'pending_refine',
   REFINED: 'refined',
@@ -31,7 +31,7 @@ export const REPORT_STATUS = {
  * Data capture modes
  * @constant {Object}
  */
-export const CAPTURE_MODE = {
+const CAPTURE_MODE = {
   FREEFORM: 'freeform',
   GUIDED: 'guided'
 };
@@ -41,7 +41,7 @@ export const CAPTURE_MODE = {
  * Matches data-section attributes in quick-interview.html
  * @constant {Object}
  */
-export const GUIDED_SECTIONS = {
+const GUIDED_SECTIONS = {
   WEATHER: 'weather',
   ACTIVITIES: 'activities',
   PERSONNEL: 'personnel',
@@ -59,7 +59,7 @@ export const GUIDED_SECTIONS = {
  * Note: weather and activities do NOT have toggles
  * @constant {string[]}
  */
-export const TOGGLE_SECTIONS = [
+const TOGGLE_SECTIONS = [
   'personnel',
   'equipment',
   'issues',
@@ -91,7 +91,7 @@ const STATUS_FLOW = [
  *
  * @returns {string} Today's date in YYYY-MM-DD format
  */
-export function getTodayDateString() {
+function getTodayDateString() {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -105,7 +105,7 @@ export function getTodayDateString() {
  * @param {Object} report - The report object
  * @returns {boolean} True if report date matches today
  */
-export function isReportFromToday(report) {
+function isReportFromToday(report) {
   if (!report || !report.date) {
     return false;
   }
@@ -118,7 +118,7 @@ export function isReportFromToday(report) {
  * @param {Object} report - The report object
  * @returns {boolean} True if report is late
  */
-export function isReportLate(report) {
+function isReportLate(report) {
   if (!report || !report.date) {
     return false;
   }
@@ -139,7 +139,7 @@ export function isReportLate(report) {
  *   - CONTINUE_EXISTING: Has in-progress report for today (allowed, but should continue it)
  *   - null: Can start fresh
  */
-export function canStartNewReport(projectId) {
+function canStartNewReport(projectId) {
   if (!projectId) {
     console.warn('canStartNewReport: No projectId provided');
     return { allowed: false, reason: 'NO_PROJECT_ID', blockingReportId: null };
@@ -196,7 +196,7 @@ export function canStartNewReport(projectId) {
  *
  * @returns {string[]} Array of project IDs that pass canStartNewReport()
  */
-export function getProjectsEligibleForNewReport() {
+function getProjectsEligibleForNewReport() {
   const projects = getStorageItem(STORAGE_KEYS.PROJECTS) || {};
   const eligibleIds = [];
 
@@ -220,7 +220,7 @@ export function getProjectsEligibleForNewReport() {
  *   - todayReady: Today, status = refined (needs review) - sorted newest first
  *   - todaySubmitted: Today, status = submitted (done) - sorted newest first
  */
-export function getReportsByUrgency() {
+function getReportsByUrgency() {
   const reports = getStorageItem(STORAGE_KEYS.CURRENT_REPORTS) || {};
   const today = getTodayDateString();
 
@@ -270,7 +270,7 @@ export function getReportsByUrgency() {
  * @param {string} targetStatus - The desired target status
  * @returns {{allowed: boolean, reason: string|null}}
  */
-export function canTransitionStatus(reportId, targetStatus) {
+function canTransitionStatus(reportId, targetStatus) {
   const report = getCurrentReport(reportId);
 
   if (!report) {
@@ -315,7 +315,7 @@ export function canTransitionStatus(reportId, targetStatus) {
  * @param {string} currentStatus - The current status
  * @returns {string|null} The next valid status, or null if at end
  */
-export function getNextValidStatus(currentStatus) {
+function getNextValidStatus(currentStatus) {
   const currentIndex = STATUS_FLOW.indexOf(currentStatus);
 
   if (currentIndex === -1) {
@@ -336,7 +336,7 @@ export function getNextValidStatus(currentStatus) {
  * @param {string} reportId - The report UUID
  * @returns {boolean} True if status is 'draft' or 'refined'
  */
-export function isReportEditable(reportId) {
+function isReportEditable(reportId) {
   const report = getCurrentReport(reportId);
 
   if (!report) {
@@ -354,7 +354,7 @@ export function isReportEditable(reportId) {
  * @param {string} reportId - The report UUID
  * @returns {boolean} True only if status is 'draft'
  */
-export function canReturnToNotes(reportId) {
+function canReturnToNotes(reportId) {
   const report = getCurrentReport(reportId);
 
   if (!report) {
@@ -378,7 +378,7 @@ export function canReturnToNotes(reportId) {
  * @param {string} section - The section name
  * @returns {{allowed: boolean, currentValue: boolean|null}}
  */
-export function canChangeToggle(reportId, section) {
+function canChangeToggle(reportId, section) {
   const report = getCurrentReport(reportId);
 
   if (!report) {
@@ -405,7 +405,7 @@ export function canChangeToggle(reportId, section) {
  * @param {string} section - The section name
  * @returns {boolean|null} Toggle state: true, false, or null if not yet selected
  */
-export function getSectionToggleState(reportId, section) {
+function getSectionToggleState(reportId, section) {
   const report = getCurrentReport(reportId);
 
   if (!report) {
@@ -430,7 +430,7 @@ export function getSectionToggleState(reportId, section) {
  * @param {string} reportId - The report UUID
  * @returns {{allowed: boolean, reason: string|null, dataWillMigrate: boolean}}
  */
-export function canSwitchCaptureMode(reportId) {
+function canSwitchCaptureMode(reportId) {
   const report = getCurrentReport(reportId);
 
   if (!report) {
@@ -474,7 +474,7 @@ export function canSwitchCaptureMode(reportId) {
  * @param {string} reportId - The report UUID
  * @returns {{valid: boolean, errors: string[]}}
  */
-export function validateReportForAI(reportId) {
+function validateReportForAI(reportId) {
   const report = getCurrentReport(reportId);
   const errors = [];
 
@@ -529,7 +529,7 @@ export function validateReportForAI(reportId) {
  * @param {string} reportId - The report UUID
  * @returns {{valid: boolean, errors: string[]}}
  */
-export function validateReportForSubmit(reportId) {
+function validateReportForSubmit(reportId) {
   const report = getCurrentReport(reportId);
   const errors = [];
 
