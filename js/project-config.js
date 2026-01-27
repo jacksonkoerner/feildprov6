@@ -136,11 +136,11 @@ async function deleteProjectFromSupabase(projectId) {
 }
 
 function getActiveProjectId() {
-    return localStorage.getItem(ACTIVE_PROJECT_KEY);
+    return getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
 }
 
 function setActiveProjectId(projectId) {
-    localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+    setStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID, projectId);
 }
 
 function createNewProject() {
@@ -229,7 +229,7 @@ function deleteProject(projectId) {
 
             // Clear active project if it was deleted
             if (getActiveProjectId() === projectId) {
-                localStorage.removeItem(ACTIVE_PROJECT_KEY);
+                removeStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
             }
 
             // If we're currently editing this project, close the form

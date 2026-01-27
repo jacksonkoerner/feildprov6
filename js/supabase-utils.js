@@ -541,3 +541,43 @@ export function toSupabasePhoto(photo, reportId) {
 
   return row;
 }
+
+// ============================================================================
+// EQUIPMENT CONVERTERS
+// ============================================================================
+
+/**
+ * Convert Supabase equipment row to JS format
+ *
+ * DB columns: id, project_id, name, description, is_active, created_at
+ *
+ * @param {Object} row - Supabase equipment row
+ * @returns {Object} JS equipment object
+ */
+export function fromSupabaseEquipment(row) {
+  return {
+    id: row.id,
+    projectId: row.project_id || null,
+    name: row.name || '',
+    description: row.description || '',
+    isActive: row.is_active ?? true,
+    createdAt: row.created_at || null
+  };
+}
+
+/**
+ * Convert JS equipment object to Supabase format
+ *
+ * @param {Object} equipment - JS equipment object
+ * @param {string} projectId - Project ID
+ * @returns {Object} Supabase row format
+ */
+export function toSupabaseEquipment(equipment, projectId) {
+  return {
+    id: equipment.id,
+    project_id: projectId,
+    name: equipment.name || '',
+    description: equipment.description || '',
+    is_active: equipment.isActive ?? true
+  };
+}
